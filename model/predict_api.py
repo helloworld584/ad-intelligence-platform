@@ -324,28 +324,47 @@ ROAS: {b.roas.avg} / {b.roas.p25} / {b.roas.p75}
 
 위 데이터를 분석하여 아래 JSON 스키마로만 응답하세요:
 {json_schema}
+
+중요: 각 텍스트 필드는 150자 이내로 간결하게 작성하고,
+반드시 완전한 JSON을 반환하세요. 응답이 잘리면 안 됩니다.
 """
 
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2000,
-            system=(
-                "당신은 디지털 광고 성과 분석 전문가입니다. "
-                "입력된 캠페인 데이터와 업종 벤치마크를 분석하여 "
-                "반드시 지정된 JSON 스키마 형식으로만 응답하세요. "
-                "추가 텍스트나 마크다운 없이 JSON만 반환하세요. "
-                "모든 분석은 한국어로 작성하세요."
-            ),
-            messages=[{"role": "user", "content": user_prompt}],
+
+        def call_claude(system_prompt: str) -> str:
+            resp = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            text = resp.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            return text.strip()
+
+        main_system = (
+            "당신은 디지털 광고 성과 분석 전문가입니다. "
+            "입력된 캠페인 데이터와 업종 벤치마크를 분석하여 "
+            "반드시 지정된 JSON 스키마 형식으로만 응답하세요. "
+            "추가 텍스트나 마크다운 없이 JSON만 반환하세요. "
+            "모든 분석은 한국어로 작성하세요."
         )
-        raw = response.content[0].text.strip()
-        # 마크다운 코드블록 제거
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        parsed = json.loads(raw)
+        fallback_system = "JSON만 반환하세요. 각 텍스트 필드는 100자 이내로 간결하게 작성하세요."
+
+        raw = call_claude(main_system)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            print("[WARN] /diagnose JSON 파싱 실패, fallback 재시도")
+            raw = call_claude(fallback_system)
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e:
+                print(f"[ERROR] /diagnose fallback 후에도 JSON 파싱 실패: {e}")
+                raise HTTPException(status_code=500, detail=f"JSON 파싱 실패 (재시도 후): {str(e)}")
 
         result = DiagnoseResponse(**parsed)
         diagnose_cache[cache_key] = result
