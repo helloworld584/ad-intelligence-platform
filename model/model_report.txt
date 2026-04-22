@@ -1,0 +1,62 @@
+============================================================
+LightGBM CTR 예측 모델 학습
+============================================================
+
+[1] 데이터 로드 및 샘플링
+  train.gz 로딩 중...
+  전체 행 수: 40,428,967
+  샘플링 후 행 수: 5,000,000
+
+[2] 전처리
+  hour → hour_of_day, day_of_week 변환 완료
+  C20 결측치(-1) → 0 대체 완료
+  id 컬럼 삭제 완료
+  Label Encoding 완료: ['site_id', 'site_domain', 'site_category', 'app_id', 'app_domain', 'app_category', 'device_id', 'device_ip', 'device_model']
+
+[3] 학습/검증 분리 (80/20)
+  학습: 4,000,000  검증: 1,000,000
+  scale_pos_weight = 4.89  (불균형 보정)
+
+[4] LightGBM 모델 학습 중...
+  최적 트리 수: 300
+
+[5] 모델 평가
+
+  AUC-ROC  : 0.746219
+  Log Loss : 0.595338
+
+  Confusion Matrix:
+    [521574 308707]  (실제 0)
+    [ 44339 125380]  (실제 1)
+
+  Classification Report:
+                  precision    recall  f1-score   support
+    
+               0     0.9217    0.6282    0.7471    830281
+               1     0.2888    0.7388    0.4153    169719
+    
+        accuracy                         0.6470   1000000
+       macro avg     0.6052    0.6835    0.5812   1000000
+    weighted avg     0.8142    0.6470    0.6908   1000000
+    
+
+  Feature Importance (Top 15):
+    site_id             :   2210
+    site_domain         :   2206
+    app_id              :   2116
+    device_model        :   1438
+    C14                 :   1339
+    C20                 :    879
+    C19                 :    864
+    C21                 :    827
+    app_domain          :    818
+    site_category       :    791
+    C17                 :    736
+    app_category        :    686
+    device_id           :    512
+    hour_of_day         :    462
+    banner_pos          :    460
+
+[6] 모델 저장
+  모델 저장: C:\develop\ad-intelligence-platform\model\lgbm_model.pkl
+  LabelEncoder 저장: C:\develop\ad-intelligence-platform\model\label_encoders.pkl
