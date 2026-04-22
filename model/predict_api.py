@@ -5,12 +5,14 @@ import pickle
 import re
 import traceback
 from collections import Counter
+from datetime import datetime, timezone, timedelta
+import feedparser
 import numpy as np
 import pandas as pd
 import anthropic
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -50,6 +52,20 @@ DEFAULTS = {
     "device_ip": "unknown",
     "device_model": "unknown",
     "C20": 0,
+}
+
+# ── /collect-news 상수 ───────────────────────────────────────
+RSS_SOURCES = [
+    ("https://searchengineland.com/feed",                    "searchengineland.com"),
+    ("https://www.socialmediaexaminer.com/feed/",            "socialmediaexaminer.com"),
+    ("https://feeds.feedburner.com/socialmediaexaminer",     "socialmediaexaminer.com"),
+]
+
+TAG_KEYWORDS: dict[str, list[str]] = {
+    "알고리즘변경": ["algorithm", "update", "change", "알고리즘"],
+    "새기능":       ["feature", "launch", "new", "introduces", "기능"],
+    "규제":         ["privacy", "regulation", "policy", "ban", "규제"],
+    "시장동향":     ["market", "trend", "report", "growth", "시장"],
 }
 
 # ── /analyze-competitor 상수 ─────────────────────────────────
@@ -221,6 +237,13 @@ class PredictResponse(BaseModel):
     click_probability: float
     confidence: str
     benchmark_comparison: BenchmarkComparison
+
+# ── /collect-news 스키마 ─────────────────────────────────────
+class CollectNewsResponse(BaseModel):
+    collected: int
+    inserted: int
+    skipped: int
+    sources: list[str]
 
 # ── /analyze-competitor 스키마 ────────────────────────────────
 class CompetitorRequest(BaseModel):
@@ -567,3 +590,102 @@ def analyze_competitor(req: CompetitorRequest):
         print(f"[ERROR] /analyze-competitor 실패: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── /collect-news 헬퍼 ───────────────────────────────────────
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+
+def _strip_html(text: str) -> str:
+    return _HTML_TAG_RE.sub('', text).strip()
+
+def _classify_news_tags(text: str) -> list[str]:
+    low = text.lower()
+    return [tag for tag, kws in TAG_KEYWORDS.items() if any(kw in low for kw in kws)]
+
+def _make_impact_comment(title: str, tags: list[str]) -> str:
+    if "알고리즘변경" in tags:
+        return f"광고주에게 미치는 영향: {title} — 광고 노출 및 성과 변동 가능성, 캠페인 설정 점검 권장"
+    if "새기능" in tags:
+        return f"광고주에게 미치는 영향: {title} — 새로운 광고 기능 활용 기회, 조기 도입 시 경쟁 우위 확보 가능"
+    if "규제" in tags:
+        return f"광고주에게 미치는 영향: {title} — 타겟팅 및 데이터 활용 방식 변경 필요, 컴플라이언스 검토 요망"
+    if "시장동향" in tags:
+        return f"광고주에게 미치는 영향: {title} — 시장 변화에 따른 예산 배분 및 전략 재검토 필요"
+    return f"광고주에게 미치는 영향: {title} — 관련 동향 모니터링 및 광고 전략 검토 필요"
+
+@app.post("/collect-news", response_model=CollectNewsResponse)
+def collect_news(x_cron_secret: str | None = Header(default=None)):
+    cron_secret = os.getenv("CRON_SECRET")
+    if not cron_secret or x_cron_secret != cron_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    supabase = state.get("supabase")
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    all_rows: list[dict] = []
+    active_sources: set[str] = set()
+
+    for feed_url, source_name in RSS_SOURCES:
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries:
+                url = entry.get("link", "")
+                if not url:
+                    continue
+
+                if entry.get("published_parsed"):
+                    pub_dt = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+                else:
+                    pub_dt = datetime.now(timezone.utc)
+
+                if pub_dt < cutoff:
+                    continue
+
+                title = entry.get("title", "")
+                raw_summary = entry.get("summary", entry.get("description", ""))
+                summary = _strip_html(raw_summary)[:200]
+
+                tags = _classify_news_tags(f"{title} {summary}")
+                impact_comment = _make_impact_comment(title, tags)
+
+                all_rows.append({
+                    "title": title,
+                    "url": url,
+                    "published_at": pub_dt.isoformat(),
+                    "source": source_name,
+                    "summary": summary,
+                    "tags": tags,
+                    "impact_comment": impact_comment,
+                })
+                active_sources.add(source_name)
+        except Exception as e:
+            print(f"[WARN] RSS 수집 실패 ({feed_url}): {e}")
+            continue
+
+    if not all_rows:
+        return CollectNewsResponse(collected=0, inserted=0, skipped=0, sources=[])
+
+    # 기존 URL 조회 → 신규만 삽입
+    url_list = [r["url"] for r in all_rows]
+    existing_res = (
+        supabase.schema("adplatform")
+        .table("industry_news")
+        .select("url")
+        .in_("url", url_list)
+        .execute()
+    )
+    existing_urls = {r["url"] for r in existing_res.data} if existing_res.data else set()
+
+    new_rows = [r for r in all_rows if r["url"] not in existing_urls]
+    skipped = len(all_rows) - len(new_rows)
+
+    if new_rows:
+        supabase.schema("adplatform").table("industry_news").insert(new_rows).execute()
+
+    return CollectNewsResponse(
+        collected=len(all_rows),
+        inserted=len(new_rows),
+        skipped=skipped,
+        sources=sorted(active_sources),
+    )
