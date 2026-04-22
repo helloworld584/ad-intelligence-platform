@@ -2,7 +2,9 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import traceback
+from collections import Counter
 import numpy as np
 import pandas as pd
 import anthropic
@@ -48,6 +50,42 @@ DEFAULTS = {
     "device_ip": "unknown",
     "device_model": "unknown",
     "C20": 0,
+}
+
+# ── /analyze-competitor 상수 ─────────────────────────────────
+CTA_PATTERNS: dict[str, str] = {
+    "Learn More": r"더\s*알아보|알아보기|자세히|learn more",
+    "Sign Up":    r"가입|회원가입|sign up|등록",
+    "Buy Now":    r"구매|구입|지금\s*사|buy now|주문",
+    "Get Started":r"시작|get started|시작하기",
+    "Try Free":   r"무료\s*체험|무료로|try free|체험",
+    "Shop Now":   r"쇼핑|shop now|바로\s*구매",
+    "Download":   r"다운로드|download",
+    "Subscribe":  r"구독|subscribe",
+}
+
+_URGENCY_RE  = re.compile(r"지금|오늘|한정|마감|긴급|only|today|limited|now", re.I)
+_NUMBER_RE   = re.compile(r"\d")
+_KO_CHAR_RE  = re.compile(r"[가-힯ᄀ-ᇿ㄰-㆏]")
+_SPLIT_RE    = re.compile(r"[\s\.,!?;:'\"()\[\]{}<>/\\|@#$%^&*+=~`]+")
+
+_KO_STOPWORDS = {
+    "이", "그", "저", "것", "을", "를", "가", "은", "는", "에", "의", "와",
+    "과", "도", "만", "로", "으로", "에서", "부터", "까지", "하다", "있다",
+    "되다", "없다", "이다", "합니다", "입니다", "있습니다", "없습니다", "됩니다",
+    "하여", "해서", "하면", "하고", "위해", "통해", "대한", "및", "또는",
+    "그리고", "하지만", "그러나", "더욱", "매우", "아주", "정말", "너무",
+    "모든", "이런", "그런", "어떤", "같은", "다른", "여러", "많은", "있는",
+    "하는", "되는", "없는", "위한", "통한", "대해",
+}
+
+_EN_STOPWORDS = {
+    "this", "that", "with", "from", "your", "have", "more", "will", "been",
+    "they", "them", "their", "what", "when", "which", "about", "into", "than",
+    "also", "just", "like", "some", "very", "know", "make", "time", "year",
+    "good", "most", "over", "such", "even", "here", "well", "only", "then",
+    "come", "these", "those", "would", "could", "should", "there", "where",
+    "other", "after", "before", "through", "during",
 }
 
 # ── 앱 상태 / 캐시 ───────────────────────────────────────────
@@ -183,6 +221,30 @@ class PredictResponse(BaseModel):
     click_probability: float
     confidence: str
     benchmark_comparison: BenchmarkComparison
+
+# ── /analyze-competitor 스키마 ────────────────────────────────
+class CompetitorRequest(BaseModel):
+    texts: list[str]
+    brand_name: str | None = None
+
+class KeywordItem(BaseModel):
+    word: str
+    count: int
+
+class LinguisticFeaturesResponse(BaseModel):
+    has_question_ratio: float
+    has_number_ratio: float
+    has_urgency_ratio: float
+    has_emoji_ratio: float
+    avg_length: float
+    length_distribution: dict[str, int]
+
+class CompetitorResponse(BaseModel):
+    total_count: int
+    cta_distribution: dict[str, int]
+    linguistic_features: LinguisticFeaturesResponse
+    top_keywords: list[KeywordItem]
+    interpretation: str
 
 # ── 헬퍼 ─────────────────────────────────────────────────────
 def encode_categorical(row: dict, label_encoders: dict) -> dict:
@@ -374,5 +436,134 @@ ROAS: {b.roas.avg} / {b.roas.p25} / {b.roas.p75}
         raise
     except Exception as e:
         print(f"[ERROR] /diagnose 실패: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── /analyze-competitor 헬퍼 ─────────────────────────────────
+def _has_emoji(text: str) -> bool:
+    for ch in text:
+        cp = ord(ch)
+        if (0x1F300 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF):
+            return True
+    return False
+
+def _classify_cta(text: str) -> list[str]:
+    found = []
+    for label, pattern in CTA_PATTERNS.items():
+        if re.search(pattern, text, re.I):
+            found.append(label)
+    return found
+
+def _analyze_linguistics(texts: list[str]) -> LinguisticFeaturesResponse:
+    n = len(texts)
+    q = num = urg = emo = 0
+    lengths = []
+    for t in texts:
+        if "?" in t:
+            q += 1
+        if _NUMBER_RE.search(t):
+            num += 1
+        if _URGENCY_RE.search(t):
+            urg += 1
+        if _has_emoji(t):
+            emo += 1
+        lengths.append(len(t))
+
+    short = sum(1 for l in lengths if l <= 30)
+    medium = sum(1 for l in lengths if 30 < l <= 80)
+    long_ = sum(1 for l in lengths if l > 80)
+
+    return LinguisticFeaturesResponse(
+        has_question_ratio=round(q / n, 4),
+        has_number_ratio=round(num / n, 4),
+        has_urgency_ratio=round(urg / n, 4),
+        has_emoji_ratio=round(emo / n, 4),
+        avg_length=round(sum(lengths) / n, 2),
+        length_distribution={"short": short, "medium": medium, "long": long_},
+    )
+
+def _extract_keywords(texts: list[str]) -> list[KeywordItem]:
+    counter: Counter = Counter()
+    for text in texts:
+        tokens = _SPLIT_RE.split(text)
+        for token in tokens:
+            token = token.strip()
+            if not token:
+                continue
+            if _KO_CHAR_RE.search(token):
+                if len(token) >= 2 and token not in _KO_STOPWORDS:
+                    counter[token] += 1
+            else:
+                word = token.lower()
+                if len(word) >= 4 and word.isalpha() and word not in _EN_STOPWORDS:
+                    counter[word] += 1
+    return [KeywordItem(word=w, count=c) for w, c in counter.most_common(20)]
+
+@app.post("/analyze-competitor", response_model=CompetitorResponse)
+def analyze_competitor(req: CompetitorRequest):
+    try:
+        if not req.texts:
+            raise HTTPException(status_code=422, detail="texts는 비어 있을 수 없습니다.")
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+
+        texts = req.texts
+        n = len(texts)
+
+        # CTA 분포
+        cta_dist: Counter = Counter()
+        for t in texts:
+            for label in _classify_cta(t):
+                cta_dist[label] += 1
+
+        # 언어 특성
+        ling = _analyze_linguistics(texts)
+
+        # 키워드 빈도
+        keywords = _extract_keywords(texts)
+
+        # Claude 인사이트 생성
+        stats_payload = {
+            "brand_name": req.brand_name,
+            "total_count": n,
+            "cta_distribution": dict(cta_dist),
+            "linguistic_features": ling.model_dump(),
+            "top_keywords": [k.model_dump() for k in keywords[:10]],
+        }
+
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            system=(
+                "당신은 디지털 광고 카피라이팅 전문가입니다. "
+                "제공된 광고 텍스트 분석 데이터를 바탕으로 "
+                "해당 브랜드의 광고 전략 패턴을 한국어로 간결하게 해석하세요. "
+                "구체적인 수치를 인용하며 2-3문장으로 작성하세요."
+            ),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"다음 광고 분석 데이터를 해석해주세요:\n"
+                    f"{json.dumps(stats_payload, ensure_ascii=False, indent=2)}"
+                ),
+            }],
+        )
+        interpretation = resp.content[0].text.strip()
+
+        return CompetitorResponse(
+            total_count=n,
+            cta_distribution=dict(cta_dist),
+            linguistic_features=ling,
+            top_keywords=keywords,
+            interpretation=interpretation,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] /analyze-competitor 실패: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
