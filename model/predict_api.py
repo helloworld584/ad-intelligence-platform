@@ -1,7 +1,10 @@
+import hashlib
+import json
 import os
 import pickle
 import numpy as np
 import pandas as pd
+import anthropic
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -46,8 +49,9 @@ DEFAULTS = {
     "C20": 0,
 }
 
-# ── 앱 상태 ──────────────────────────────────────────────────
+# ── 앱 상태 / 캐시 ───────────────────────────────────────────
 state: dict = {}
+diagnose_cache: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,6 +106,75 @@ class PredictRequest(BaseModel):
 class BenchmarkComparison(BaseModel):
     industry_avg_ctr: float
     performance: str
+
+# ── /diagnose 스키마 ─────────────────────────────────────────
+class CampaignInfo(BaseModel):
+    industry: str
+    platform: str
+    budget: float
+    impressions: int
+    clicks: int
+    conversions: int
+    revenue: float
+
+class MetricsInfo(BaseModel):
+    ctr: float
+    cpc: float
+    cvr: float
+    cpa: float
+    roas: float
+
+class BenchmarkStats(BaseModel):
+    avg: float
+    p25: float
+    p75: float
+
+class BenchmarksInfo(BaseModel):
+    ctr: BenchmarkStats
+    cpc: BenchmarkStats
+    cvr: BenchmarkStats
+    cpa: BenchmarkStats
+    roas: BenchmarkStats
+
+class DiagnoseRequest(BaseModel):
+    campaign: CampaignInfo
+    metrics: MetricsInfo
+    benchmarks: BenchmarksInfo
+
+class MetricAnalysis(BaseModel):
+    metric: str
+    status: str
+    cause_estimate: str
+    cascade_effect: str
+
+class MetricRelationship(BaseModel):
+    pattern: str
+    interpretation: str
+
+class IndustryPlatformContext(BaseModel):
+    key_metric: str
+    insight: str
+
+class ActionItem(BaseModel):
+    action: str
+    expected_impact: str
+
+class ActionItems(BaseModel):
+    immediate: list[ActionItem]
+    next_cycle: list[ActionItem]
+    long_term: list[ActionItem]
+
+class BudgetEfficiency(BaseModel):
+    verdict: str
+    reasoning: str
+    suggestion: str
+
+class DiagnoseResponse(BaseModel):
+    per_metric_analysis: list[MetricAnalysis]
+    metric_relationships: list[MetricRelationship]
+    industry_platform_context: IndustryPlatformContext
+    action_items: ActionItems
+    budget_efficiency: BudgetEfficiency
 
 class PredictResponse(BaseModel):
     predicted_ctr: float
@@ -197,3 +270,85 @@ def predict(req: PredictRequest):
             performance=performance,
         ),
     )
+
+@app.post("/diagnose", response_model=DiagnoseResponse)
+def diagnose(req: DiagnoseRequest):
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+
+    # SHA-256 캐시 키
+    cache_key = hashlib.sha256(
+        json.dumps(req.model_dump(), sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
+    if cache_key in diagnose_cache:
+        return diagnose_cache[cache_key]
+
+    c = req.campaign
+    m = req.metrics
+    b = req.benchmarks
+
+    json_schema = """{
+  "per_metric_analysis": [
+    {"metric": "string", "status": "string", "cause_estimate": "string", "cascade_effect": "string"}
+  ],
+  "metric_relationships": [
+    {"pattern": "string", "interpretation": "string"}
+  ],
+  "industry_platform_context": {"key_metric": "string", "insight": "string"},
+  "action_items": {
+    "immediate":  [{"action": "string", "expected_impact": "string"}],
+    "next_cycle": [{"action": "string", "expected_impact": "string"}],
+    "long_term":  [{"action": "string", "expected_impact": "string"}]
+  },
+  "budget_efficiency": {"verdict": "string", "reasoning": "string", "suggestion": "string"}
+}"""
+
+    user_prompt = f"""
+[캠페인 정보]
+업종: {c.industry} / 플랫폼: {c.platform} / 예산: ${c.budget}
+노출: {c.impressions} / 클릭: {c.clicks} / 전환: {c.conversions} / 매출: ${c.revenue}
+
+[내 지표]
+CTR {m.ctr}% | CPC ${m.cpc} | CVR {m.cvr}% | CPA ${m.cpa} | ROAS {m.roas}
+
+[업종 벤치마크 (평균 / p25 / p75)]
+CTR:  {b.ctr.avg}% / {b.ctr.p25}% / {b.ctr.p75}%
+CPC:  ${b.cpc.avg} / ${b.cpc.p25} / ${b.cpc.p75}
+CVR:  {b.cvr.avg}% / {b.cvr.p25}% / {b.cvr.p75}%
+CPA:  ${b.cpa.avg} / ${b.cpa.p25} / ${b.cpa.p75}
+ROAS: {b.roas.avg} / {b.roas.p25} / {b.roas.p75}
+
+위 데이터를 분석하여 아래 JSON 스키마로만 응답하세요:
+{json_schema}
+"""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2000,
+            system=(
+                "당신은 디지털 광고 성과 분석 전문가입니다. "
+                "입력된 캠페인 데이터와 업종 벤치마크를 분석하여 "
+                "반드시 지정된 JSON 스키마 형식으로만 응답하세요. "
+                "추가 텍스트나 마크다운 없이 JSON만 반환하세요. "
+                "모든 분석은 한국어로 작성하세요."
+            ),
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = response.content[0].text.strip()
+        # 마크다운 코드블록 제거
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Claude 응답 파싱 실패: {e}")
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=502, detail=f"Claude API 오류: {e}")
+
+    result = DiagnoseResponse(**parsed)
+    diagnose_cache[cache_key] = result
+    return result
