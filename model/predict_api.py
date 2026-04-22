@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import pickle
+import traceback
 import numpy as np
 import pandas as pd
 import anthropic
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
     else:
         state["supabase"] = None
 
+    print(f"ANTHROPIC_API_KEY 설정 여부: {'설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '없음'}")
     print("모델 및 Supabase 클라이언트 로드 완료")
     yield
     state.clear()
@@ -273,22 +275,23 @@ def predict(req: PredictRequest):
 
 @app.post("/diagnose", response_model=DiagnoseResponse)
 def diagnose(req: DiagnoseRequest):
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
 
-    # SHA-256 캐시 키
-    cache_key = hashlib.sha256(
-        json.dumps(req.model_dump(), sort_keys=True, ensure_ascii=False).encode()
-    ).hexdigest()
-    if cache_key in diagnose_cache:
-        return diagnose_cache[cache_key]
+        # SHA-256 캐시 키
+        cache_key = hashlib.sha256(
+            json.dumps(req.model_dump(), sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+        if cache_key in diagnose_cache:
+            return diagnose_cache[cache_key]
 
-    c = req.campaign
-    m = req.metrics
-    b = req.benchmarks
+        c = req.campaign
+        m = req.metrics
+        b = req.benchmarks
 
-    json_schema = """{
+        json_schema = """{
   "per_metric_analysis": [
     {"metric": "string", "status": "string", "cause_estimate": "string", "cascade_effect": "string"}
   ],
@@ -304,7 +307,7 @@ def diagnose(req: DiagnoseRequest):
   "budget_efficiency": {"verdict": "string", "reasoning": "string", "suggestion": "string"}
 }"""
 
-    user_prompt = f"""
+        user_prompt = f"""
 [캠페인 정보]
 업종: {c.industry} / 플랫폼: {c.platform} / 예산: ${c.budget}
 노출: {c.impressions} / 클릭: {c.clicks} / 전환: {c.conversions} / 매출: ${c.revenue}
@@ -323,7 +326,6 @@ ROAS: {b.roas.avg} / {b.roas.p25} / {b.roas.p75}
 {json_schema}
 """
 
-    try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
             model="claude-sonnet-4-6",
@@ -344,11 +346,14 @@ ROAS: {b.roas.avg} / {b.roas.p25} / {b.roas.p75}
             if raw.startswith("json"):
                 raw = raw[4:]
         parsed = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Claude 응답 파싱 실패: {e}")
-    except anthropic.APIError as e:
-        raise HTTPException(status_code=502, detail=f"Claude API 오류: {e}")
 
-    result = DiagnoseResponse(**parsed)
-    diagnose_cache[cache_key] = result
-    return result
+        result = DiagnoseResponse(**parsed)
+        diagnose_cache[cache_key] = result
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] /diagnose 실패: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
