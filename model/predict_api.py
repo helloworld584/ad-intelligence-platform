@@ -767,23 +767,41 @@ def analyze_creative(req: AnalyzeCreativeRequest):
 
         main_system = (
             "당신은 디지털 광고 카피 품질 분석 전문가입니다. "
-            "입력된 광고 카피를 분석하여 반드시 지정된 JSON 스키마 형식으로만 응답하세요. "
+            "입력된 광고 카피를 분석하여 반드시 다음 JSON 스키마 형식으로만 응답하세요. "
             "추가 텍스트나 마크다운 없이 JSON만 반환하세요. "
-            "모든 분석은 한국어로 작성하세요."
+            "모든 분석은 한국어로 작성하세요.\n\n"
+            "반환 JSON 스키마 (필드명을 정확히 사용하세요):\n"
+            '{"overall_score": <0-100 정수>, '
+            '"item_scores": [{"name": "string", "score": <0-100 정수>, "description": "string"}, ...], '
+            '"strengths": ["string", ...], '
+            '"improvements": ["string", ...]}'
         )
-        fallback_system = "JSON만 반환하세요. 각 텍스트 필드는 50자 이내로 간결하게 작성하세요."
+        fallback_system = (
+            "JSON만 반환하세요. 필드명: overall_score, item_scores(name/score/description), "
+            "strengths, improvements. 각 텍스트 필드는 50자 이내."
+        )
 
         raw = call_claude(main_system)
+        print(f"[DEBUG] Claude 응답: {raw[:500]}")
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
             print("[WARN] /analyze-creative JSON 파싱 실패, fallback 재시도")
             raw = call_claude(fallback_system)
+            print(f"[DEBUG] Claude fallback 응답: {raw[:500]}")
             try:
                 parsed = json.loads(raw)
             except json.JSONDecodeError as e:
                 print(f"[ERROR] /analyze-creative fallback 후에도 JSON 파싱 실패: {e}")
                 raise HTTPException(status_code=500, detail=f"JSON 파싱 실패 (재시도 후): {str(e)}")
+
+        # Claude가 다른 필드명으로 응답한 경우 item_scores로 리매핑
+        if "item_scores" not in parsed:
+            for alt_key in ("dimension_scores", "criteria_scores", "scores", "items"):
+                if alt_key in parsed:
+                    print(f"[WARN] 필드명 리매핑: '{alt_key}' → 'item_scores'")
+                    parsed["item_scores"] = parsed.pop(alt_key)
+                    break
 
         result = AnalyzeCreativeResponse(**parsed)
         return result
