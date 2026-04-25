@@ -5,12 +5,12 @@ function Landing() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <div className="bg-gradient-to-b from-gray-800 to-gray-900 py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl font-bold mb-6">광고 성과를 데이터로 증명하세요</h1>
-          <p className="text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
+        <div className="w-full text-center">
+          <h1 className="text-3xl sm:text-5xl font-bold mb-6">광고 성과를 데이터로 증명하세요</h1>
+          <p className="text-lg sm:text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
             업종별 벤치마크 비교, AI 캠페인 진단, 경쟁사 광고 패턴 분석을 한 곳에서
           </p>
-          <div className="flex gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/benchmarks"
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg text-lg"
@@ -29,9 +29,9 @@ function Landing() {
 
       {/* Features Section */}
       <div className="bg-gray-900 py-20 px-4">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           <h2 className="text-3xl font-bold text-center mb-12">주요 기능</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             <div className="bg-gray-800 rounded-lg p-8">
               <div className="text-blue-400 text-4xl mb-4">📊</div>
               <h3 className="text-xl font-bold mb-3">벤치마크 비교</h3>
@@ -59,8 +59,8 @@ function Landing() {
 
       {/* Stats Section */}
       <div className="bg-gray-800 py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+        <div className="w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
             <div>
               <p className="text-5xl font-bold text-blue-400 mb-2">10</p>
               <p className="text-gray-300 text-lg">업종</p>
@@ -79,7 +79,7 @@ function Landing() {
 
       {/* Bottom CTA Section */}
       <div className="bg-gray-900 py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="w-full text-center">
           <h2 className="text-3xl font-bold mb-6">지금 바로 무료로 시작하세요</h2>
           <p className="text-gray-300 mb-8 text-lg">
             데이터 기반의 광고 성과 개선을 시작하세요

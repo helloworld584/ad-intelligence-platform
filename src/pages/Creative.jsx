@@ -219,7 +219,7 @@ function Creative() {
           {/* Item Scores */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">항목별 점수</h2>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               {result.item_scores.map((item, index) => (
                 <div key={index} className="bg-gray-700 rounded-lg p-4">
                   <h3 className="font-semibold mb-2">{item.name}</h3>
@@ -235,7 +235,7 @@ function Creative() {
           {/* Strengths */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">강점 분석</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {result.strengths.map((strength, index) => (
                 <div key={index} className="bg-green-900 border border-green-700 rounded-lg p-4">
                   <p className="text-green-100">{strength}</p>
@@ -247,7 +247,7 @@ function Creative() {
           {/* Improvements */}
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">개선 제안</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {result.improvements.map((improvement, index) => (
                 <div key={index} className="bg-yellow-900 border border-yellow-700 rounded-lg p-4">
                   <p className="text-yellow-100">{improvement}</p>

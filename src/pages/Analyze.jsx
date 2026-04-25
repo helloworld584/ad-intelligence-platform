@@ -569,7 +569,7 @@ function Analyze() {
       {/* Data Input Section */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
         <h2 className="text-xl font-bold mb-4">데이터 입력</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">캠페인명</label>
             <input
@@ -677,7 +677,7 @@ function Analyze() {
       {analyzed && metrics && (
         <>
           {/* Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
             <div className="bg-gray-800 rounded-lg p-4">
               <h3 className="text-sm text-gray-400 mb-1">CTR</h3>
               <p className="text-2xl font-bold">{metrics.ctr.toFixed(2)}%</p>
@@ -703,7 +703,7 @@ function Analyze() {
           {/* Radar Chart */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">업종 평균 대비 비교</h2>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={250} smHeight={400}>
               <RadarChart data={getRadarData()}>
                 <PolarGrid stroke="#374151" />
                 <PolarAngleAxis dataKey="metric" stroke="#9CA3AF" />
@@ -743,7 +743,7 @@ function Analyze() {
                 {/* ① 지표별 심층 진단 */}
                 <div className="mb-8">
                   <h3 className="text-lg font-semibold mb-3 text-gray-200">① 지표별 심층 진단</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {aiDiagnosis.per_metric_analysis.map((item) => {
                       const isBelow = item.status === 'below_average'
                       const isAbove = item.status === 'above_average'
@@ -807,7 +807,7 @@ function Analyze() {
                 {/* ④ 우선순위별 액션 아이템 */}
                 <div className="mb-8">
                   <h3 className="text-lg font-semibold mb-3 text-gray-200">④ 우선순위별 액션 아이템</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {[
                       { key: 'immediate',  label: '지금 당장',  border: 'border-red-500' },
                       { key: 'next_cycle', label: '다음 주기',  border: 'border-yellow-500' },
