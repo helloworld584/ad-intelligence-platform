@@ -5,10 +5,16 @@ export default async function handler(req, res) {
 
   const authHeader = req.headers['authorization']
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return res.status(401).json({ 
+      error: 'Unauthorized',
+      debug: `received: ${authHeader}` 
+    })
   }
 
-  const apiUrl = process.env.VITE_API_URL
+  const apiUrl = process.env.API_URL
+  if (!apiUrl) {
+    return res.status(500).json({ error: 'API_URL 환경변수가 없습니다' })
+  }
 
   try {
     const response = await fetch(`${apiUrl}/collect-news`, {
