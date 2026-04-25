@@ -4,6 +4,8 @@ import { supabase } from '../utils/supabase'
 import { useSession } from '../contexts/AuthContext'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { toDbPlatform } from '../lib/mappings'
+import EmptyState from '../components/EmptyState'
+import ErrorState from '../components/ErrorState'
 
 const INDUSTRIES = ['이커머스', '교육', 'SaaS/테크', '금융/보험', '헬스케어', '여행/숙박', '부동산', '리테일', 'B2B', '미디어/엔터']
 const PLATFORMS = ['Google Search', 'Google Display', 'Meta']
@@ -703,19 +705,27 @@ function Analyze() {
           {/* Radar Chart */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">업종 평균 대비 비교</h2>
-            <ResponsiveContainer width="100%" height={250} smHeight={400}>
-              <RadarChart data={getRadarData()}>
-                <PolarGrid stroke="#374151" />
-                <PolarAngleAxis dataKey="metric" stroke="#9CA3AF" />
-                <PolarRadiusAxis 
-                  stroke="#9CA3AF" 
-                  domain={[0, 2]}
-                  tickFormatter={(value) => value === 1 ? '평균' : value}
-                />
-                <Radar name="내 수치" dataKey="user" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
-                <Radar name="업종 평균" dataKey="benchmark" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
-              </RadarChart>
-            </ResponsiveContainer>
+            {getBenchmarkMetrics().ctr === undefined && getBenchmarkMetrics().cpc === undefined ? (
+              <EmptyState
+                icon="📈"
+                title="벤치마크 데이터 없음"
+                description="해당 업종/플랫폼의 비교 데이터가 없습니다."
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={250} smHeight={400}>
+                <RadarChart data={getRadarData()}>
+                  <PolarGrid stroke="#374151" />
+                  <PolarAngleAxis dataKey="metric" stroke="#9CA3AF" />
+                  <PolarRadiusAxis 
+                    stroke="#9CA3AF" 
+                    domain={[0, 2]}
+                    tickFormatter={(value) => value === 1 ? '평균' : value}
+                  />
+                  <Radar name="내 수치" dataKey="user" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
+                  <Radar name="업종 평균" dataKey="benchmark" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
+                </RadarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* AI Diagnostic Report */}
@@ -732,9 +742,7 @@ function Analyze() {
 
             {/* 에러 */}
             {aiError && (
-              <div className="bg-red-900 border border-red-600 rounded-lg p-4 text-red-300">
-                {aiError}
-              </div>
+              <ErrorState message={aiError} onRetry={analyze} />
             )}
 
             {/* 결과 5개 블록 */}

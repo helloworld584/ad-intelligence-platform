@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { toDbPlatform } from '../lib/mappings'
+import EmptyState from '../components/EmptyState'
+import ErrorState from '../components/ErrorState'
 
 const PLATFORMS = [
   { value: 'google_search', label: 'Google Search' },
@@ -24,6 +26,7 @@ function Benchmarks() {
   const [selectedIndustry, setSelectedIndustry] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState('google_search')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [userMetrics, setUserMetrics] = useState({
     CTR: '',
     CPC: '',
@@ -87,6 +90,7 @@ function Benchmarks() {
       }
     } catch (error) {
       console.error('Error fetching benchmarks:', error)
+      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -189,6 +193,18 @@ function Benchmarks() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-4">Benchmarks</h1>
+        <ErrorState message={error} onRetry={fetchBenchmarks} />
+      </div>
+    )
+  }
+
+  const filteredData = getFilteredData()
+  const hasData = filteredData.length > 0
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold mb-6">Benchmarks</h1>
@@ -227,96 +243,106 @@ function Benchmarks() {
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {METRICS.map(metric => {
-          const stats = getMetricStats(metric)
-          const hasData = stats.avg !== null
-          
-          return (
-            <div
-              key={metric}
-              className={`rounded-lg p-4 ${
-                hasData ? 'bg-blue-900' : 'bg-gray-800'
-              }`}
-            >
-              <h3 className="text-lg font-semibold mb-2">{METRIC_NAMES[metric]}</h3>
-              <div className="space-y-1">
-                <p className="text-sm text-gray-400">평균: {formatMetricValue(metric, stats.avg)}</p>
-                <p className="text-sm text-gray-400">상위 25%: {formatMetricValue(metric, stats.top25)}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* User Comparison */}
-      <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">내 수치 비교</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {METRICS.map(metric => {
-            const stats = getMetricStats(metric)
-            const percentile = calculatePercentile(parseFloat(userMetrics[metric]), metric)
-            
-            return (
-              <div key={metric} className="space-y-2">
-                <label className="block text-sm font-medium text-gray-300">
-                  {METRIC_NAMES[metric]}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={userMetrics[metric]}
-                  onChange={(e) => setUserMetrics({ ...userMetrics, [metric]: e.target.value })}
-                  placeholder="값 입력"
-                  className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-                />
-                {percentile !== null && (
-                  <div>
-                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 transition-all"
-                        style={{ width: `${percentile}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-gray-400 mt-1">상위 {100 - percentile}% 수준</p>
+      {!hasData ? (
+        <EmptyState
+          icon="📊"
+          title="데이터가 없습니다"
+          description="해당 업종/플랫폼 조합의 벤치마크 데이터가 아직 준비 중입니다."
+        />
+      ) : (
+        <>
+          {/* Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {METRICS.map(metric => {
+              const stats = getMetricStats(metric)
+              const hasMetricData = stats.avg !== null
+              
+              return (
+                <div
+                  key={metric}
+                  className={`rounded-lg p-4 ${
+                    hasMetricData ? 'bg-blue-900' : 'bg-gray-800'
+                  }`}
+                >
+                  <h3 className="text-lg font-semibold mb-2">{METRIC_NAMES[metric]}</h3>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-400">평균: {formatMetricValue(metric, stats.avg)}</p>
+                    <p className="text-sm text-gray-400">상위 25%: {formatMetricValue(metric, stats.top25)}</p>
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                </div>
+              )
+            })}
+          </div>
 
-      {/* Industry Comparison Chart */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-          <h2 className="text-xl font-bold">업종 간 비교</h2>
-          <select
-            value={selectedMetricForChart}
-            onChange={(e) => setSelectedMetricForChart(e.target.value)}
-            className="bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-          >
-            {METRICS.map(metric => (
-              <option key={metric} value={metric}>{METRIC_NAMES[metric]}</option>
-            ))}
-          </select>
-        </div>
-        <div className="overflow-x-auto">
-          <ResponsiveContainer width="100%" height={400} minWidth={600}>
-            <BarChart data={getChartData()}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="industry" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                itemStyle={{ color: '#F3F4F6' }}
-              />
-              <Bar dataKey="value" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          {/* User Comparison */}
+          <div className="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 className="text-xl font-bold mb-4">내 수치 비교</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {METRICS.map(metric => {
+                const stats = getMetricStats(metric)
+                const percentile = calculatePercentile(parseFloat(userMetrics[metric]), metric)
+                
+                return (
+                  <div key={metric} className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      {METRIC_NAMES[metric]}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={userMetrics[metric]}
+                      onChange={(e) => setUserMetrics({ ...userMetrics, [metric]: e.target.value })}
+                      placeholder="값 입력"
+                      className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                    {percentile !== null && (
+                      <div>
+                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 transition-all"
+                            style={{ width: `${percentile}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-400 mt-1">상위 {100 - percentile}% 수준</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Industry Comparison Chart */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+              <h2 className="text-xl font-bold">업종 간 비교</h2>
+              <select
+                value={selectedMetricForChart}
+                onChange={(e) => setSelectedMetricForChart(e.target.value)}
+                className="bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+              >
+                {METRICS.map(metric => (
+                  <option key={metric} value={metric}>{METRIC_NAMES[metric]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width="100%" height={400} minWidth={600}>
+                <BarChart data={getChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="industry" stroke="#9CA3AF" />
+                  <YAxis stroke="#9CA3AF" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                    itemStyle={{ color: '#F3F4F6' }}
+                  />
+                  <Bar dataKey="value" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

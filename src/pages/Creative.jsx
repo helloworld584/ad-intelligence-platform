@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
+import ErrorState from '../components/ErrorState'
 
 const PLATFORMS = ['Meta', 'Google Search', 'Google Display']
 const platformMap = {
@@ -89,9 +90,7 @@ function Creative() {
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
+        <ErrorState message={error} onRetry={analyze} />
       )}
 
       {/* Upload Section */}

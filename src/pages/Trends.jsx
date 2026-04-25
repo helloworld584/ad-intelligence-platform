@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import EmptyState from '../components/EmptyState'
+import ErrorState from '../components/ErrorState'
 
 const PLATFORM_COLORS = {
   'Google': '#3B82F6',
@@ -17,6 +19,7 @@ function Trends() {
   const [industryNews, setIndustryNews] = useState([])
   const [selectedTag, setSelectedTag] = useState('전체')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -50,6 +53,7 @@ function Trends() {
       }
     } catch (error) {
       console.error('Error fetching trends data:', error)
+      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -110,6 +114,15 @@ function Trends() {
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-4">Trends</h1>
+        <ErrorState message={error} onRetry={fetchData} />
       </div>
     )
   }
@@ -220,9 +233,11 @@ function Trends() {
         </div>
 
         {filteredNews.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            표시할 뉴스가 없습니다.
-          </div>
+          <EmptyState
+            icon="📰"
+            title="뉴스가 없습니다"
+            description="최신 뉴스를 불러오는 중입니다. 잠시 후 다시 확인해주세요."
+          />
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import ErrorState from '../components/ErrorState'
 
 const CTA_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16']
 
@@ -229,9 +230,7 @@ function Competitor() {
       </div>
 
       {error && (
-        <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-8">
-          <p className="text-red-200">{error}</p>
-        </div>
+        <ErrorState message={error} onRetry={handleAnalyze} />
       )}
 
       {/* Analysis Results */}
