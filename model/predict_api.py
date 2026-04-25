@@ -4,15 +4,15 @@ import os
 import pickle
 import re
 import traceback
-from collections import Counter
-from datetime import datetime, timezone, timedelta
+from collections import Counter, defaultdict
+from datetime import datetime, timezone, timedelta, date
 import feedparser
 import numpy as np
 import pandas as pd
 import anthropic
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -107,6 +107,34 @@ _EN_STOPWORDS = {
 # ── 앱 상태 / 캐시 ───────────────────────────────────────────
 state: dict = {}
 diagnose_cache: dict = {}
+
+# ── Rate Limiting (메모리 기반 일일 카운터) ──────────────────
+_DAILY_AI_LIMIT = 5
+# { (user_id, date): count }
+_daily_counts: dict = defaultdict(int)
+
+def _get_user_id(request: Request) -> str | None:
+    """Authorization 헤더에서 Supabase JWT를 파싱해 user_id 반환. 실패 시 None."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[len("Bearer "):]
+    supabase = state.get("supabase")
+    if supabase is None:
+        return None
+    try:
+        result = supabase.auth.get_user(token)
+        return result.user.id if result and result.user else None
+    except Exception:
+        return None
+
+def _check_rate_limit(user_id: str) -> bool:
+    """일일 한도 확인 후 카운터 증가. 한도 초과 시 False 반환."""
+    key = (user_id, date.today())
+    if _daily_counts[key] >= _DAILY_AI_LIMIT:
+        return False
+    _daily_counts[key] += 1
+    return True
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -377,8 +405,14 @@ def predict(req: PredictRequest):
     )
 
 @app.post("/diagnose", response_model=DiagnoseResponse)
-def diagnose(req: DiagnoseRequest):
+def diagnose(req: DiagnoseRequest, request: Request):
     try:
+        user_id = _get_user_id(request)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="AI 기능은 로그인이 필요합니다.")
+        if not _check_rate_limit(user_id):
+            raise HTTPException(status_code=429, detail="일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.")
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
@@ -541,10 +575,16 @@ def _extract_keywords(texts: list[str]) -> list[KeywordItem]:
     return [KeywordItem(word=w, count=c) for w, c in counter.most_common(20)]
 
 @app.post("/analyze-competitor", response_model=CompetitorResponse)
-def analyze_competitor(req: CompetitorRequest):
+def analyze_competitor(req: CompetitorRequest, request: Request):
     try:
         if not req.texts:
             raise HTTPException(status_code=422, detail="texts는 비어 있을 수 없습니다.")
+
+        user_id = _get_user_id(request)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="AI 기능은 로그인이 필요합니다.")
+        if not _check_rate_limit(user_id):
+            raise HTTPException(status_code=429, detail="일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.")
 
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
@@ -709,8 +749,14 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
     )
 
 @app.post("/analyze-creative", response_model=AnalyzeCreativeResponse)
-def analyze_creative(req: AnalyzeCreativeRequest):
+def analyze_creative(req: AnalyzeCreativeRequest, request: Request):
     try:
+        user_id = _get_user_id(request)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="AI 기능은 로그인이 필요합니다.")
+        if not _check_rate_limit(user_id):
+            raise HTTPException(status_code=429, detail="일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.")
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")

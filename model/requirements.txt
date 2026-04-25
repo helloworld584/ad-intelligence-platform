@@ -9,3 +9,4 @@ python-dotenv
 supabase
 anthropic
 feedparser
+slowapi
