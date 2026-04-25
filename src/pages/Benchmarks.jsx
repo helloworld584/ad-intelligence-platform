@@ -135,15 +135,34 @@ function Benchmarks() {
   }
 
   const calculatePercentile = (userValue, metric) => {
-    const filtered = getFilteredData()
-    const metricData = filtered.filter(b => b.metric_name === metric)
-    const values = metricData.map(item => item.metric_value).filter(v => v !== null && v !== undefined)
-    
-    if (values.length === 0 || !userValue) return null
+    const stats = getMetricStats(metric)
+    if (!userValue || stats.avg === null) return null
 
-    const sorted = [...values].sort((a, b) => a - b)
-    const betterCount = sorted.filter(v => v <= userValue).length
-    return Math.round((betterCount / values.length) * 100)
+    // 높을수록 좋은 지표 (CTR, CVR, ROAS)
+    const higherIsBetter = ['CTR', 'CVR', 'ROAS'].includes(metric)
+    
+    // p25, p75가 있는 경우
+    if (stats.p25 !== null && stats.p75 !== null) {
+      if (higherIsBetter) {
+        if (userValue >= stats.p75) return 100  // 상위 25% 이내
+        if (userValue >= stats.avg) return 75   // 상위 50% 이내
+        if (userValue >= stats.p25) return 50   // 상위 75% 이내
+        return 25  // 하위 25%
+      } else {
+        // 낮을수록 좋은 지표 (CPC, CPA, CPM)
+        if (userValue <= stats.p25) return 100  // 상위 25% 이내
+        if (userValue <= stats.avg) return 75   // 상위 50% 이내
+        if (userValue <= stats.p75) return 50   // 상위 75% 이내
+        return 25  // 하위 25%
+      }
+    }
+    
+    // p25/p75가 없는 경우 (평균만 있는 경우)
+    if (higherIsBetter) {
+      return userValue >= stats.avg ? 75 : 25
+    } else {
+      return userValue <= stats.avg ? 75 : 25
+    }
   }
 
   const getChartData = () => {
