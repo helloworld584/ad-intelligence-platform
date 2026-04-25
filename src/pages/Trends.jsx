@@ -44,7 +44,12 @@ function Trends() {
       }
 
       setPlatformTrends(trendsResponse.data || [])
-      setIndustryNews(newsResponse.data || [])
+      
+      // Deduplicate news by URL
+      const uniqueNews = (newsResponse.data || []).filter((item, index, self) =>
+        index === self.findIndex(n => n.url === item.url)
+      )
+      setIndustryNews(uniqueNews)
       
       // Debug: Log first news item's published_at
       if (newsResponse.data && newsResponse.data.length > 0) {
@@ -178,9 +183,13 @@ function Trends() {
               >
                 <h3 className="font-semibold text-lg mb-2">{card.platform}</h3>
                 <p className="text-3xl font-bold mb-1">{card.market_share.toFixed(1)}%</p>
-                <p className={`text-sm ${card.ad_spend_growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  광고비 성장: {card.ad_spend_growth >= 0 ? '+' : ''}{card.ad_spend_growth.toFixed(1)}%
-                </p>
+                {card.ad_spend_growth === null || card.ad_spend_growth === 0 || card.ad_spend_growth === undefined ? (
+                  <p className="text-sm text-gray-400">광고비 성장: 데이터 없음</p>
+                ) : (
+                  <p className={`text-sm ${card.ad_spend_growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    광고비 성장: {card.ad_spend_growth >= 0 ? '+' : ''}{card.ad_spend_growth.toFixed(1)}%
+                  </p>
+                )}
               </div>
             ))}
           </div>
