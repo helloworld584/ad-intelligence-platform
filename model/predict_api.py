@@ -245,6 +245,24 @@ class CollectNewsResponse(BaseModel):
     skipped: int
     sources: list[str]
 
+# ── /analyze-creative 스키마 ─────────────────────────────────
+class AnalyzeCreativeRequest(BaseModel):
+    copy_text: str
+    platform: str
+    industry: str
+    has_image: bool
+
+class ItemScore(BaseModel):
+    name: str
+    score: int
+    description: str
+
+class AnalyzeCreativeResponse(BaseModel):
+    overall_score: int
+    item_scores: list[ItemScore]
+    strengths: list[str]
+    improvements: list[str]
+
 # ── /analyze-competitor 스키마 ────────────────────────────────
 class CompetitorRequest(BaseModel):
     texts: list[str]
@@ -689,3 +707,90 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
         skipped=skipped,
         sources=sorted(active_sources),
     )
+
+@app.post("/analyze-creative", response_model=AnalyzeCreativeResponse)
+def analyze_creative(req: AnalyzeCreativeRequest):
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+
+        json_schema = """{
+  "overall_score": 0-100,
+  "item_scores": [
+    {"name": "명확성", "score": 0-100, "description": "string"},
+    {"name": "관련성", "score": 0-100, "description": "string"},
+    {"name": "행동유도", "score": 0-100, "description": "string"},
+    {"name": "긴급성", "score": 0-100, "description": "string"},
+    {"name": "감성", "score": 0-100, "description": "string"}
+  ],
+  "strengths": ["string"],
+  "improvements": ["string"]
+}"""
+
+        user_prompt = f"""
+다음 광고 카피를 분석하여 품질 점수를 매겨주세요:
+
+[광고 정보]
+플랫폼: {req.platform}
+업종: {req.industry}
+이미지 포함: {'예' if req.has_image else '아니오'}
+
+[광고 텍스트]
+{req.copy_text}
+
+분석 기준:
+- 명확성: 메시지가 명확하고 이해하기 쉬운지
+- 관련성: 타겟 고객과 플랫폼에 적합한지
+- 행동유도: CTA가 명확하고 강력한지
+- 긴급성: 긴급성 요소가 포함되어 있는지
+- 감성: 감정적 호소가 효과적인지
+
+위 JSON 스키마로만 응답하세요. 각 설명은 50자 이내로 간결하게 작성하세요.
+"""
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        def call_claude(system_prompt: str) -> str:
+            resp = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            text = resp.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            return text.strip()
+
+        main_system = (
+            "당신은 디지털 광고 카피 품질 분석 전문가입니다. "
+            "입력된 광고 카피를 분석하여 반드시 지정된 JSON 스키마 형식으로만 응답하세요. "
+            "추가 텍스트나 마크다운 없이 JSON만 반환하세요. "
+            "모든 분석은 한국어로 작성하세요."
+        )
+        fallback_system = "JSON만 반환하세요. 각 텍스트 필드는 50자 이내로 간결하게 작성하세요."
+
+        raw = call_claude(main_system)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            print("[WARN] /analyze-creative JSON 파싱 실패, fallback 재시도")
+            raw = call_claude(fallback_system)
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e:
+                print(f"[ERROR] /analyze-creative fallback 후에도 JSON 파싱 실패: {e}")
+                raise HTTPException(status_code=500, detail=f"JSON 파싱 실패 (재시도 후): {str(e)}")
+
+        result = AnalyzeCreativeResponse(**parsed)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] /analyze-creative 실패: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
