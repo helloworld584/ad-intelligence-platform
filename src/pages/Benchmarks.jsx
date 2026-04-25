@@ -141,36 +141,42 @@ function Benchmarks() {
     return { avg, top25, p25, p75 }
   }
 
-  const calculatePercentile = (userValue, metric) => {
-    const stats = getMetricStats(metric)
-    if (!userValue || stats.avg === null) return null
+// 높을수록 좋은 지표
+const HIGH_BETTER = ['CTR', 'CVR', 'ROAS']
+// 낮을수록 좋은 지표  
+const LOW_BETTER = ['CPC', 'CPA', 'CPM']
 
-    // 높을수록 좋은 지표 (CTR, CVR, ROAS)
-    const higherIsBetter = ['CTR', 'CVR', 'ROAS'].includes(metric)
-    
-    // p25, p75가 있는 경우
-    if (stats.p25 !== null && stats.p75 !== null) {
-      if (higherIsBetter) {
-        if (userValue >= stats.p75) return 100  // 상위 25% 이내
-        if (userValue >= stats.avg) return 75   // 상위 50% 이내
-        if (userValue >= stats.p25) return 50   // 상위 75% 이내
-        return 25  // 하위 25%
-      } else {
-        // 낮을수록 좋은 지표 (CPC, CPA, CPM)
-        if (userValue <= stats.p25) return 100  // 상위 25% 이내
-        if (userValue <= stats.avg) return 75   // 상위 50% 이내
-        if (userValue <= stats.p75) return 50   // 상위 75% 이내
-        return 25  // 하위 25%
-      }
-    }
-    
-    // p25/p75가 없는 경우 (평균만 있는 경우)
-    if (higherIsBetter) {
-      return userValue >= stats.avg ? 75 : 25
+const calcPercentile = (metricName, myValue, avg, p25, p75) => {
+  const val = parseFloat(myValue)
+  if (isNaN(val)) return null
+
+  const isHighBetter = HIGH_BETTER.includes(metricName)
+
+  // p25/p75 없으면 평균만으로 판별
+  if (p25 == null || p75 == null) {
+    if (isHighBetter) {
+      return val >= avg
+        ? { label: '평균 이상', color: 'blue', width: '75%' }
+        : { label: '평균 이하', color: 'red', width: '25%' }
     } else {
-      return userValue <= stats.avg ? 75 : 25
+      return val <= avg
+        ? { label: '평균 이상', color: 'blue', width: '75%' }
+        : { label: '평균 이하', color: 'red', width: '25%' }
     }
   }
+
+  if (isHighBetter) {
+    if (val >= p75) return { label: '상위 25% 이내', color: 'green', width: '100%' }
+    if (val >= avg)  return { label: '상위 50% 이내', color: 'blue',  width: '75%'  }
+    if (val >= p25) return { label: '상위 75% 이내', color: 'gray',  width: '50%'  }
+    return              { label: '하위 25%',       color: 'red',   width: '25%'  }
+  } else {
+    if (val <= p25) return { label: '상위 25% 이내', color: 'green', width: '100%' }
+    if (val <= avg)  return { label: '상위 50% 이내', color: 'blue',  width: '75%'  }
+    if (val <= p75) return { label: '상위 75% 이내', color: 'gray',  width: '50%'  }
+    return              { label: '하위 25%',       color: 'red',   width: '25%'  }
+  }
+}
 
   const getChartData = () => {
     const platformData = benchmarks.filter(b => b.platform === toDbPlatform(selectedPlatform))
@@ -306,7 +312,21 @@ function Benchmarks() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {METRICS.map(metric => {
                 const stats = getMetricStats(metric)
-                const percentile = calculatePercentile(parseFloat(userMetrics[metric]), metric)
+                const result = calcPercentile(metric, userMetrics[metric], stats.avg, stats.p25, stats.p75)
+                
+                const colorClass = {
+                  green: 'bg-green-500',
+                  blue: 'bg-blue-500',
+                  gray: 'bg-gray-500',
+                  red: 'bg-red-500'
+                }[result?.color] || 'bg-blue-500'
+
+                const textColorClass = {
+                  green: 'text-green-400',
+                  blue: 'text-blue-400',
+                  gray: 'text-gray-400',
+                  red: 'text-red-400'
+                }[result?.color] || 'text-gray-400'
                 
                 return (
                   <div key={metric} className="space-y-2">
@@ -321,15 +341,15 @@ function Benchmarks() {
                       placeholder="값 입력"
                       className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                     />
-                    {percentile !== null && (
+                    {result && (
                       <div>
                         <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 transition-all"
-                            style={{ width: `${percentile}%` }}
+                            className={`h-full ${colorClass} transition-all`}
+                            style={{ width: result.width }}
                           />
                         </div>
-                        <p className="text-sm text-gray-400 mt-1">상위 {100 - percentile}% 수준</p>
+                        <p className={`text-sm ${textColorClass} mt-1`}>{result.label}</p>
                       </div>
                     )}
                   </div>
