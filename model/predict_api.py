@@ -62,10 +62,10 @@ RSS_SOURCES = [
 ]
 
 TAG_KEYWORDS: dict[str, list[str]] = {
-    "알고리즘변경": ["algorithm", "update", "change", "알고리즘"],
-    "새기능":       ["feature", "launch", "new", "introduces", "기능"],
-    "규제":         ["privacy", "regulation", "policy", "ban", "규제"],
-    "시장동향":     ["market", "trend", "report", "growth", "시장"],
+    "알고리즘변경": ["algorithm", "update", "change", "ranking", "core update", "알고리즘"],
+    "새기능":       ["feature", "launch", "new", "introduces", "announce", "release", "기능"],
+    "규제":         ["privacy", "regulation", "policy", "ban", "law", "gdpr", "ftc", "규제"],
+    "시장동향":     ["market", "trend", "report", "growth", "revenue", "spend", "share", "시장"],
 }
 
 # ── /analyze-competitor 상수 ─────────────────────────────────
@@ -597,9 +597,9 @@ _HTML_TAG_RE = re.compile(r'<[^>]+>')
 def _strip_html(text: str) -> str:
     return _HTML_TAG_RE.sub('', text).strip()
 
-def _classify_news_tags(text: str) -> list[str]:
-    low = text.lower()
-    return [tag for tag, kws in TAG_KEYWORDS.items() if any(kw in low for kw in kws)]
+def _classify_news_tags(title: str, summary: str) -> list[str]:
+    text = f"{title} {summary}".lower()
+    return [tag for tag, kws in TAG_KEYWORDS.items() if any(kw in text for kw in kws)]
 
 def _make_impact_comment(title: str, tags: list[str]) -> str:
     if "알고리즘변경" in tags:
@@ -646,7 +646,7 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
                 raw_summary = entry.get("summary", entry.get("description", ""))
                 summary = _strip_html(raw_summary)[:200]
 
-                tags = _classify_news_tags(f"{title} {summary}")
+                tags = _classify_news_tags(title, summary)
                 impact_comment = _make_impact_comment(title, tags)
 
                 all_rows.append({
