@@ -45,10 +45,14 @@ function Trends() {
 
       setPlatformTrends(trendsResponse.data || [])
       
-      // Deduplicate news by URL
-      const uniqueNews = (newsResponse.data || []).filter((item, index, self) =>
-        index === self.findIndex(n => n.url === item.url)
-      )
+      // Deduplicate news by URL and title
+      const uniqueNews = (newsResponse.data || [])
+        .filter((item, index, self) =>
+          index === self.findIndex(n => n.url === item.url)
+        )
+        .filter((item, index, self) =>
+          index === self.findIndex(n => n.title === item.title)
+        )
       setIndustryNews(uniqueNews)
       
       // Debug: Log first news item's published_at
