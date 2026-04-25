@@ -232,9 +232,15 @@ function Analyze() {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/diagnose`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           campaign: {
             industry: formData.industry,
@@ -261,12 +267,20 @@ function Analyze() {
           }
         })
       })
+      
+      if (response.status === 401) {
+        throw new Error('로그인이 필요합니다.')
+      }
+      if (response.status === 429) {
+        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      
       const data = await response.json()
       setAiDiagnosis(data)
     } catch (err) {
       console.error('Diagnose error:', err)
-      setAiError('분석에 실패했습니다. 다시 시도해주세요.')
+      setAiError(err.message || '분석에 실패했습니다. 다시 시도해주세요.')
     } finally {
       setAiLoading(false)
     }

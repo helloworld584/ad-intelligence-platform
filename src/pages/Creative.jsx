@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '../utils/supabase'
 import ErrorState from '../components/ErrorState'
 
 const PLATFORMS = ['Meta', 'Google Search', 'Google Display']
@@ -55,9 +56,15 @@ function Creative() {
     setLoading(true)
     setError(null)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/analyze-creative`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           copy_text: formData.adText,
           platform: platformMap[formData.platform],
@@ -65,11 +72,20 @@ function Creative() {
           has_image: !!formData.image
         })
       })
+      
+      if (response.status === 401) {
+        throw new Error('로그인이 필요합니다.')
+      }
+      if (response.status === 429) {
+        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      
       const data = await response.json()
       setResult(data)
       setAnalyzed(true)
     } catch (err) {
-      setError('분석에 실패했습니다. 다시 시도해주세요.')
+      setError(err.message || '분석에 실패했습니다. 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }

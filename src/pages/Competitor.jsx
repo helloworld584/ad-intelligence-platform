@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '../utils/supabase'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import ErrorState from '../components/ErrorState'
 
@@ -43,11 +44,15 @@ function Competitor() {
     setResults(null)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const apiUrl = import.meta.env.VITE_API_URL
       const response = await fetch(`${apiUrl}/analyze-competitor`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           texts: textList,
@@ -55,6 +60,12 @@ function Competitor() {
         })
       })
 
+      if (response.status === 401) {
+        throw new Error('로그인이 필요합니다.')
+      }
+      if (response.status === 429) {
+        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+      }
       if (!response.ok) {
         throw new Error('분석 요청 실패')
       }
