@@ -123,7 +123,7 @@ function Benchmarks() {
     console.log('getMetricStats - values length:', values.length)
     
     if (values.length === 0) {
-      return { avg: null, top25: null }
+      return { avg: null, top25: null, p25: null, p75: null }
     }
 
     const sorted = [...values].sort((a, b) => b - a)
@@ -131,7 +131,14 @@ function Benchmarks() {
     const top25Index = Math.floor(values.length * config.topPercentileThreshold)
     const top25 = sorted[top25Index] || sorted[sorted.length - 1]
 
-    return { avg, top25 }
+    // Get p25 and p75 from the first metric data item (assuming all items have same percentiles)
+    const firstItem = metricData[0]
+    const p25 = firstItem?.percentile_25 || null
+    const p75 = firstItem?.percentile_75 || null
+
+    console.log(`getMetricStats - avg: ${avg}, p25: ${p25}, p75: ${p75}`)
+
+    return { avg, top25, p25, p75 }
   }
 
   const calculatePercentile = (userValue, metric) => {
