@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../contexts/AuthContext'
-import { useLanguage, useTranslation } from '../hooks/useTranslation'
+import { useLanguage } from '../contexts/LanguageContext'
+import { useTranslation } from '../hooks/useTranslation'
 
 function Navbar() {
   const { session, logout } = useSession()
