@@ -75,7 +75,17 @@ export default {
       total_budget: '총 예산 ($)',
       goal: '목표',
       optimize: '최적화 계산',
-      no_roas: '이 업종은 해당 플랫폼의 ROAS 벤치마크가 없습니다'
+      no_roas: '이 업종은 해당 플랫폼의 ROAS 벤치마크가 없습니다',
+      goal_max_clicks: '클릭 최대화',
+      goal_max_conversions: '전환 최대화',
+      goal_max_roas: 'ROAS 최대화',
+      my_score: '내 수치',
+      industry_avg: '업종 평균',
+      sum_100: '✓ 합계 100%',
+      current_sum: '현재 배분 합계',
+      adjust_to_100: '(100%로 맞춰주세요)',
+      benchmark_based: '업종별 실제 벤치마크 데이터 기반 계산',
+      recommended_allocation: '권장 예산 배분'
     },
     competitor: {
       title: '경쟁사',
@@ -97,7 +107,12 @@ export default {
       question_ratio: '질문형 비율',
       number_ratio: '수치 포함 비율',
       urgency_ratio: '긴급성 키워드 비율',
-      emoji_ratio: '이모지 포함 비율'
+      emoji_ratio: '이모지 포함 비율',
+      analyze_error: '분석 중 오류가 발생했습니다.',
+      length_short: 'Short (≤30자)',
+      length_medium: 'Medium (31~80자)',
+      length_long: 'Long (>80자)',
+      delete: '삭제'
     },
     creative: {
       title: '카피 품질 점수',
@@ -111,7 +126,13 @@ export default {
       score: '카피 품질 점수',
       item_scores: '항목별 점수',
       strengths: '강점 분석',
-      suggestions: '개선 제안'
+      suggestions: '개선 제안',
+      upload_image: '이미지를 드래그하거나 클릭하여 업로드',
+      image_formats: 'PNG, JPG, GIF 지원',
+      industry_example: '예: 이커머스, SaaS/테크',
+      score_excellent: '우수',
+      score_good: '보통',
+      score_poor: '개선 필요'
     },
     trends: {
       title: '트렌드',

@@ -75,7 +75,17 @@ export default {
       total_budget: 'Total Budget ($)',
       goal: 'Goal',
       optimize: 'Calculate',
-      no_roas: 'No ROAS benchmark available for this industry and platform'
+      no_roas: 'No ROAS benchmark available for this industry and platform',
+      goal_max_clicks: 'Maximize Clicks',
+      goal_max_conversions: 'Maximize Conversions',
+      goal_max_roas: 'Maximize ROAS',
+      my_score: 'My Score',
+      industry_avg: 'Industry Avg',
+      sum_100: '✓ Total 100%',
+      current_sum: 'Current allocation total',
+      adjust_to_100: '(adjust to 100%)',
+      benchmark_based: 'Based on actual industry benchmark data',
+      recommended_allocation: 'Recommended Budget Allocation'
     },
     competitor: {
       title: 'Competitor',
@@ -97,7 +107,12 @@ export default {
       question_ratio: 'Question Ratio',
       number_ratio: 'Number Ratio',
       urgency_ratio: 'Urgency Keyword Ratio',
-      emoji_ratio: 'Emoji Ratio'
+      emoji_ratio: 'Emoji Ratio',
+      analyze_error: 'Analysis error occurred.',
+      length_short: 'Short (≤30 chars)',
+      length_medium: 'Medium (31~80 chars)',
+      length_long: 'Long (>80 chars)',
+      delete: 'Delete'
     },
     creative: {
       title: 'Copy Quality Score',
@@ -111,7 +126,13 @@ export default {
       score: 'Copy Quality Score',
       item_scores: 'Item Scores',
       strengths: 'Strengths',
-      suggestions: 'Suggestions'
+      suggestions: 'Suggestions',
+      upload_image: 'Drag or click to upload image',
+      image_formats: 'PNG, JPG, GIF supported',
+      industry_example: 'e.g., E-commerce, SaaS/Tech',
+      score_excellent: 'Excellent',
+      score_good: 'Good',
+      score_poor: 'Needs Improvement'
     },
     trends: {
       title: 'Trends',

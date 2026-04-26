@@ -498,13 +498,13 @@ function Analyze() {
       const roas = metrics.roas || 1
       
       switch (goal) {
-        case '클릭 최대화':
+        case t('page.analyze.goal_max_clicks'):
           platformWeights[platform] = 1 / cpc
           break
-        case '전환 최대화':
+        case t('page.analyze.goal_max_conversions'):
           platformWeights[platform] = (cvr / 100) / cpc
           break
-        case 'ROAS 최대화':
+        case t('page.analyze.goal_max_roas'):
           platformWeights[platform] = roas
           break
         default:
@@ -737,8 +737,8 @@ function Analyze() {
                     domain={[0, 2]}
                     tickFormatter={(value) => value === 1 ? '평균' : value}
                   />
-                  <Radar name="내 수치" dataKey="user" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
-                  <Radar name="업종 평균" dataKey="benchmark" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
+                  <Radar name={t('page.analyze.my_score')} dataKey="user" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
+                  <Radar name={t('page.analyze.industry_avg')} dataKey="benchmark" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
                 </RadarChart>
               </ResponsiveContainer>
             )}
@@ -940,8 +940,8 @@ function Analyze() {
                   : 'text-red-400'
               }`}>
                 {Object.values(budgetAllocation).reduce((sum, data) => sum + data.value, 0) === 100 
-                  ? '✓ 합계 100%' 
-                  : `현재 배분 합계: ${Object.values(budgetAllocation).reduce((sum, data) => sum + data.value, 0)}% (100%로 맞춰주세요)`}
+                  ? t('page.analyze.sum_100') 
+                  : `${t('page.analyze.current_sum')}: ${Object.values(budgetAllocation).reduce((sum, data) => sum + data.value, 0)}% ${t('page.analyze.adjust_to_100')}`}
               </p>
             </div>
           </div>
@@ -949,7 +949,7 @@ function Analyze() {
           {/* Budget Optimization Engine */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold mb-2">{t('page.analyze.optimizer')}</h2>
-            <p className="text-xs text-gray-400 mb-4">업종별 실제 벤치마크 데이터 기반 계산</p>
+            <p className="text-xs text-gray-400 mb-4">{t('page.analyze.benchmark_based')}</p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
@@ -972,9 +972,9 @@ function Analyze() {
                   className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                 >
                   <option value="">{t('page.analyze.goal')}</option>
-                  <option value="클릭 최대화">클릭 최대화</option>
-                  <option value="전환 최대화">전환 최대화</option>
-                  <option value="ROAS 최대화">ROAS 최대화</option>
+                  <option value={t('page.analyze.goal_max_clicks')}>{t('page.analyze.goal_max_clicks')}</option>
+                  <option value={t('page.analyze.goal_max_conversions')}>{t('page.analyze.goal_max_conversions')}</option>
+                  <option value={t('page.analyze.goal_max_roas')}>{t('page.analyze.goal_max_roas')}</option>
                 </select>
               </div>
               <div className="flex items-end">
@@ -991,7 +991,7 @@ function Analyze() {
               <>
                 {/* Budget Allocation Chart */}
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">권장 예산 배분</h3>
+                  <h3 className="text-lg font-semibold mb-4">{t('page.analyze.recommended_allocation')}</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={Object.entries(optimizationData.allocation).map(([name, value]) => ({ name, value }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

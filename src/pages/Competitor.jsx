@@ -76,7 +76,7 @@ function Competitor() {
       console.log('API Response:', data)
       setResults(data)
     } catch (err) {
-      setError(err.message || '분석 중 오류가 발생했습니다.')
+      setError(err.message || t('page.competitor.analyze_error'))
     } finally {
       setAnalyzing(false)
     }
@@ -93,9 +93,9 @@ function Competitor() {
   const getLengthChartData = () => {
     if (!results?.linguistic_features?.length_distribution) return []
     return [
-      { name: 'Short (≤30자)', value: results.linguistic_features.length_distribution.short || 0 },
-      { name: 'Medium (31~80자)', value: results.linguistic_features.length_distribution.medium || 0 },
-      { name: 'Long (>80자)', value: results.linguistic_features.length_distribution.long || 0 }
+      { name: t('page.competitor.length_short'), value: results.linguistic_features.length_distribution.short || 0 },
+      { name: t('page.competitor.length_medium'), value: results.linguistic_features.length_distribution.medium || 0 },
+      { name: t('page.competitor.length_long'), value: results.linguistic_features.length_distribution.long || 0 }
     ]
   }
 
@@ -144,7 +144,7 @@ function Competitor() {
                 inputMode === 'bulk'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`
+              }`}
             >
               {t('page.competitor.tab_direct')}
             </button>
@@ -154,7 +154,7 @@ function Competitor() {
                 inputMode === 'single'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`
+              }`}
             >
               {t('page.competitor.tab_add')}
             </button>
@@ -209,7 +209,7 @@ function Competitor() {
                           onClick={() => handleRemoveText(index)}
                           className="ml-2 text-red-400 hover:text-red-300"
                         >
-                          삭제
+                          {t('page.competitor.delete')}
                         </button>
                       </div>
                     ))}
@@ -235,7 +235,7 @@ function Competitor() {
               textList.length < 10 || analyzing
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-green-600 hover:bg-green-700 text-white'
-            }`
+            }`}
           >
             {analyzing ? t('page.analyze.loading') : t('page.competitor.submit')}
           </button>

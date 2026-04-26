@@ -146,8 +146,8 @@ function Creative() {
               </div>
             ) : (
               <div>
-                <p className="text-gray-400 mb-2">이미지를 드래그하거나 클릭하여 업로드</p>
-                <p className="text-sm text-gray-500">PNG, JPG, GIF 지원</p>
+                <p className="text-gray-400 mb-2">{t('page.creative.upload_image')}</p>
+                <p className="text-sm text-gray-500">{t('page.creative.image_formats')}</p>
               </div>
             )}
           </div>
@@ -164,7 +164,7 @@ function Creative() {
               value={formData.industry}
               onChange={handleChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="예: 이커머스, SaaS/테크"
+              placeholder={t('page.creative.industry_example')}
             />
           </div>
           <div>
@@ -227,7 +227,7 @@ function Creative() {
               <div className="text-center">
                 <p className="text-4xl font-bold">{result.overall_score}</p>
                 <p className={`text-sm ${result.overall_score >= 80 ? 'text-green-400' : result.overall_score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {result.overall_score >= 80 ? '우수' : result.overall_score >= 60 ? '보통' : '개선 필요'}
+                  {result.overall_score >= 80 ? t('page.creative.score_excellent') : result.overall_score >= 60 ? t('page.creative.score_good') : t('page.creative.score_poor')}
                 </p>
               </div>
             </div>
