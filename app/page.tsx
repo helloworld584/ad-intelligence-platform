@@ -1,5 +1,6 @@
 import { HeroSection } from "@/components/hero-section";
 import { MetricCard } from "@/components/metric-card";
+import { AICampaignReport } from "@/components/ai-campaign-report";
 
 const metrics = [
   {
@@ -103,6 +104,9 @@ export default function HomePage() {
           </div>
         </div>
       </main>
+
+      {/* AI Campaign Report Section */}
+      <AICampaignReport />
     </>
   );
 }
