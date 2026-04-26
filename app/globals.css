@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1a1f2e;
+  --background: #0f1219;
+  --background-elevated: #1a1f2e;
   --foreground: #ffffff;
   --card: #242938;
   --card-foreground: #ffffff;
@@ -9,6 +10,7 @@
   --muted-foreground: #6b7280;
   --border: #2d3448;
   --accent: #4D71F1;
+  --accent-secondary: #7C3AED;
   --accent-foreground: #ffffff;
   --success: #22c55e;
   --success-foreground: #14532d;
