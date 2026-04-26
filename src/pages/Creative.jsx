@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../utils/supabase'
 import ErrorState from '../components/ErrorState'
+import { useTranslation } from '../hooks/useTranslation'
 
 const PLATFORMS = ['Meta', 'Google Search', 'Google Display']
 const platformMap = {
@@ -10,6 +11,7 @@ const platformMap = {
 }
 
 function Creative() {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     image: null,
     adText: '',
@@ -99,9 +101,9 @@ function Creative() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-2">Creative</h1>
+      <h1 className="text-3xl font-bold mb-2">{t('page.creative.title')}</h1>
       <p className="text-gray-400 mb-6">
-        광고 카피의 품질을 AI가 분석합니다. 참고용 지표이며 실제 CTR과의 상관관계는 검증 중입니다.
+        {t('page.creative.subtitle')}
       </p>
 
       {/* Error Banner */}
@@ -111,11 +113,11 @@ function Creative() {
 
       {/* Upload Section */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">소재 업로드</h2>
+        <h2 className="text-xl font-bold mb-4">{t('page.creative.title')}</h2>
         
         {/* Image Upload */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">이미지</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">{t('page.creative.image_note')}</label>
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
               dragActive ? 'border-blue-500 bg-gray-700' : 'border-gray-600 hover:border-gray-500'
@@ -149,13 +151,13 @@ function Creative() {
               </div>
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-2">이미지는 현재 텍스트 분석을 보조하는 용도입니다</p>
+          <p className="text-sm text-gray-500 mt-2">{t('page.creative.image_note')}</p>
         </div>
 
         {/* Form Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">업종</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.creative.industry')}</label>
             <input
               type="text"
               name="industry"
@@ -166,14 +168,14 @@ function Creative() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">플랫폼</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.creative.platform')}</label>
             <select
               name="platform"
               value={formData.platform}
               onChange={handleChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
             >
-              <option value="">플랫폼 선택</option>
+              <option value="">{t('page.creative.platform')}</option>
               {PLATFORMS.map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -182,14 +184,14 @@ function Creative() {
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-1">광고 텍스트</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.creative.ad_text')}</label>
           <textarea
             name="adText"
             value={formData.adText}
             onChange={handleChange}
             rows={4}
             className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-            placeholder="광고 텍스트 입력"
+            placeholder={t('page.creative.ad_text')}
           />
         </div>
 
@@ -198,7 +200,7 @@ function Creative() {
           disabled={loading}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold px-6 py-2 rounded"
         >
-          {loading ? 'AI 분석 중...' : '분석하기'}
+          {loading ? t('page.creative.loading') : t('page.creative.submit')}
         </button>
       </div>
 
@@ -207,7 +209,7 @@ function Creative() {
         <>
           {/* Overall Score Gauge */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">카피 품질 점수</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.creative.score')}</h2>
             <div className="flex items-center gap-8">
               <div className="flex-1">
                 <div className="h-8 bg-gray-700 rounded-full overflow-hidden">
@@ -233,7 +235,7 @@ function Creative() {
 
           {/* Item Scores */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">항목별 점수</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.creative.item_scores')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               {result.item_scores.map((item, index) => (
                 <div key={index} className="bg-gray-700 rounded-lg p-4">
@@ -249,7 +251,7 @@ function Creative() {
 
           {/* Strengths */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">강점 분석</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.creative.strengths')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {result.strengths.map((strength, index) => (
                 <div key={index} className="bg-green-900 border border-green-700 rounded-lg p-4">
@@ -261,7 +263,7 @@ function Creative() {
 
           {/* Improvements */}
           <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-bold mb-4">개선 제안</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.creative.suggestions')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {result.improvements.map((improvement, index) => (
                 <div key={index} className="bg-yellow-900 border border-yellow-700 rounded-lg p-4">

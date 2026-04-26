@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { supabase } from '../utils/supabase'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import ErrorState from '../components/ErrorState'
+import { useTranslation } from '../hooks/useTranslation'
 
 const CTA_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16']
 
 function Competitor() {
+  const { t } = useTranslation()
   const [brandName, setBrandName] = useState('')
   const [inputMode, setInputMode] = useState('bulk') // 'bulk' or 'single'
   const [bulkText, setBulkText] = useState('')
@@ -35,7 +37,7 @@ function Competitor() {
 
   const handleAnalyze = async () => {
     if (textList.length < 10) {
-      setError('최소 10건 이상 입력해주세요.')
+      setError(t('page.competitor.count_min'))
       return
     }
 
@@ -114,21 +116,21 @@ function Competitor() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-2">Competitor</h1>
-      <p className="text-sm text-gray-400 mb-6">경쟁사 광고 텍스트 패턴 분석 도구</p>
+      <h1 className="text-3xl font-bold mb-2">{t('page.competitor.title')}</h1>
+      <p className="text-sm text-gray-400 mb-6">{t('page.competitor.subtitle')}</p>
 
       {/* Input Section */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">광고 텍스트 입력</h2>
+        <h2 className="text-xl font-bold mb-4">{t('page.competitor.ad_text')}</h2>
         
         {/* Brand Name */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-1">브랜드명 (선택)</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.competitor.brand')}</label>
           <input
             type="text"
             value={brandName}
             onChange={(e) => setBrandName(e.target.value)}
-            placeholder="브랜드명 입력"
+            placeholder={t('page.competitor.brand')}
             className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -142,9 +144,9 @@ function Competitor() {
                 inputMode === 'bulk'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
+              }`
             >
-              직접 입력
+              {t('page.competitor.tab_direct')}
             </button>
             <button
               onClick={() => setInputMode('single')}
@@ -152,36 +154,36 @@ function Competitor() {
                 inputMode === 'single'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
+              }`
             >
-              한 건씩 추가
+              {t('page.competitor.tab_add')}
             </button>
           </div>
 
           {inputMode === 'bulk' ? (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                광고 텍스트 (빈 줄로 구분)
+                {t('page.competitor.ad_text')}
               </label>
               <textarea
                 value={bulkText}
                 onChange={handleBulkTextChange}
                 rows={10}
-                placeholder="광고 텍스트를 입력하세요. 각 광고는 빈 줄로 구분됩니다."
+                placeholder={t('page.competitor.placeholder')}
                 className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
               />
             </div>
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                광고 텍스트
+                {t('page.competitor.ad_text')}
               </label>
               <div className="flex gap-2 mb-4">
                 <input
                   type="text"
                   value={singleText}
                   onChange={(e) => setSingleText(e.target.value)}
-                  placeholder="광고 텍스트 입력"
+                  placeholder={t('page.competitor.ad_text')}
                   className="flex-1 bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                   onKeyPress={(e) => e.key === 'Enter' && handleAddSingleText()}
                 />
@@ -189,7 +191,7 @@ function Competitor() {
                   onClick={handleAddSingleText}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium"
                 >
-                  추가
+                  {t('page.competitor.tab_add')}
                 </button>
               </div>
               
@@ -221,9 +223,9 @@ function Competitor() {
         {/* Count and Analyze Button */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-400">
-            {textList.length}건 입력됨
+            {textList.length}{t('page.competitor.count_ok')}
             {textList.length < 10 && (
-              <span className="text-red-400 ml-2">(최소 10건 이상 필요)</span>
+              <span className="text-red-400 ml-2">{t('page.competitor.count_min')}</span>
             )}
           </p>
           <button
@@ -233,9 +235,9 @@ function Competitor() {
               textList.length < 10 || analyzing
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            }`
           >
-            {analyzing ? '분석 중...' : '분석하기'}
+            {analyzing ? t('page.analyze.loading') : t('page.competitor.submit')}
           </button>
         </div>
       </div>
@@ -249,7 +251,7 @@ function Competitor() {
         <>
           {/* CTA Distribution */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">CTA 분포</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.competitor.cta_dist')}</h2>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -276,12 +278,12 @@ function Competitor() {
 
           {/* Language Characteristics */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">언어 특성</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.competitor.lang_feat')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {results.linguistic_features && (
                 <>
                   <div className="bg-gray-700 rounded-lg p-4">
-                    <h3 className="text-sm text-gray-400 mb-2">질문형 비율</h3>
+                    <h3 className="text-sm text-gray-400 mb-2">{t('page.competitor.question_ratio')}</h3>
                     <p className="text-2xl font-bold text-blue-400">
                       {((results.linguistic_features.has_question_ratio || 0) * 100).toFixed(1)}%
                     </p>
@@ -293,7 +295,7 @@ function Competitor() {
                     </div>
                   </div>
                   <div className="bg-gray-700 rounded-lg p-4">
-                    <h3 className="text-sm text-gray-400 mb-2">수치 포함 비율</h3>
+                    <h3 className="text-sm text-gray-400 mb-2">{t('page.competitor.number_ratio')}</h3>
                     <p className="text-2xl font-bold text-green-400">
                       {((results.linguistic_features.has_number_ratio || 0) * 100).toFixed(1)}%
                     </p>
@@ -305,7 +307,7 @@ function Competitor() {
                     </div>
                   </div>
                   <div className="bg-gray-700 rounded-lg p-4">
-                    <h3 className="text-sm text-gray-400 mb-2">긴급성 키워드 비율</h3>
+                    <h3 className="text-sm text-gray-400 mb-2">{t('page.competitor.urgency_ratio')}</h3>
                     <p className="text-2xl font-bold text-yellow-400">
                       {((results.linguistic_features.has_urgency_ratio || 0) * 100).toFixed(1)}%
                     </p>
@@ -317,7 +319,7 @@ function Competitor() {
                     </div>
                   </div>
                   <div className="bg-gray-700 rounded-lg p-4">
-                    <h3 className="text-sm text-gray-400 mb-2">이모지 포함 비율</h3>
+                    <h3 className="text-sm text-gray-400 mb-2">{t('page.competitor.emoji_ratio')}</h3>
                     <p className="text-2xl font-bold text-purple-400">
                       {((results.linguistic_features.has_emoji_ratio || 0) * 100).toFixed(1)}%
                     </p>
@@ -335,7 +337,7 @@ function Competitor() {
 
           {/* Text Length Distribution */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">텍스트 길이 분포</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.competitor.length_dist')}</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={getLengthChartData()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -352,7 +354,7 @@ function Competitor() {
 
           {/* Keyword Frequency */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">키워드 빈도 (상위 10개)</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.competitor.keywords')}</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={getKeywordChartData()} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -369,7 +371,7 @@ function Competitor() {
 
           {/* AI Insights */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">AI 인사이트</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.competitor.insight')}</h2>
             {analyzing ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -387,8 +389,8 @@ function Competitor() {
 
       {/* Meta Ad Library Integration (Coming Soon) */}
       <div className="bg-gray-800 rounded-lg p-6 mt-8 opacity-60">
-        <h2 className="text-xl font-bold mb-2">Meta Ad Library 연동</h2>
-        <p className="text-sm text-gray-400">준비 중입니다. 현재는 토큰 만료로 인해 비활성화되어 있습니다.</p>
+        <h2 className="text-xl font-bold mb-2">{t('page.competitor.meta_title')}</h2>
+        <p className="text-sm text-gray-400">{t('page.competitor.meta_sub')}</p>
       </div>
     </div>
   )

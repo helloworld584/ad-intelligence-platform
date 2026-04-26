@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
+import { useTranslation } from '../hooks/useTranslation'
 
 const PLATFORM_COLORS = {
   'Google': '#3B82F6',
@@ -12,12 +13,19 @@ const PLATFORM_COLORS = {
   'Amazon': '#F97316'
 }
 
-const TAGS = ['전체', '알고리즘변경', '새기능', '규제', '시장동향']
-
 function Trends() {
+  const { t } = useTranslation()
   const [platformTrends, setPlatformTrends] = useState([])
   const [industryNews, setIndustryNews] = useState([])
-  const [selectedTag, setSelectedTag] = useState('전체')
+  const [selectedTag, setSelectedTag] = useState(t('page.trends.tag_all'))
+  
+  const TAGS = [
+    t('page.trends.tag_all'),
+    t('page.trends.tag_algo'),
+    t('page.trends.tag_feature'),
+    t('page.trends.tag_regulation'),
+    t('page.trends.tag_market')
+  ]
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -119,7 +127,7 @@ function Trends() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold mb-4">Trends</h1>
+        <h1 className="text-3xl font-bold mb-4">{t('page.trends.title')}</h1>
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
@@ -130,7 +138,7 @@ function Trends() {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold mb-4">Trends</h1>
+        <h1 className="text-3xl font-bold mb-4">{t('page.trends.title')}</h1>
         <ErrorState message={error} onRetry={fetchData} />
       </div>
     )
@@ -138,11 +146,11 @@ function Trends() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-6">Trends</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('page.trends.title')}</h1>
 
       {/* Platform Market Share */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">플랫폼 시장 점유율</h2>
+        <h2 className="text-xl font-bold mb-4">{t('page.trends.market_share')}</h2>
         
         {showChart ? (
           <ResponsiveContainer width="100%" height={400}>
@@ -188,10 +196,10 @@ function Trends() {
                 <h3 className="font-semibold text-lg mb-2">{card.platform}</h3>
                 <p className="text-3xl font-bold mb-1">{card.market_share.toFixed(1)}%</p>
                 {card.ad_spend_growth === null || card.ad_spend_growth === 0 || card.ad_spend_growth === undefined ? (
-                  <p className="text-sm text-gray-400">광고비 성장: 데이터 없음</p>
+                  <p className="text-sm text-gray-400">{t('page.trends.ad_growth')} {t('page.trends.no_growth')}</p>
                 ) : (
                   <p className={`text-sm ${card.ad_spend_growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    광고비 성장: {card.ad_spend_growth >= 0 ? '+' : ''}{card.ad_spend_growth.toFixed(1)}%
+                    {t('page.trends.ad_growth')} {card.ad_spend_growth >= 0 ? '+' : ''}{card.ad_spend_growth.toFixed(1)}%
                   </p>
                 )}
               </div>
@@ -203,7 +211,7 @@ function Trends() {
       {/* Industry News */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">최신 업계 뉴스</h2>
+          <h2 className="text-xl font-bold">{t('page.trends.news_title')}</h2>
           <div className="flex gap-2 flex-wrap">
             {TAGS.map(tag => (
               <button
@@ -239,7 +247,7 @@ function Trends() {
               </div>
               <p className="text-sm text-gray-300 mb-2 line-clamp-2">{news.summary}</p>
               {news.impact_comment && (
-                <p className="text-sm text-yellow-400 mt-2">💡 {news.impact_comment}</p>
+                <p className="text-sm text-yellow-400 mt-2">💡 {t('page.trends.impact')} {news.impact_comment}</p>
               )}
             </a>
           ))}

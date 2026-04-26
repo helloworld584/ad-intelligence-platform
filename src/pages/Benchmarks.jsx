@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { toDbPlatform } from '../lib/mappings'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
+import { useTranslation } from '../hooks/useTranslation'
 
 const PLATFORMS = [
   { value: 'google_search', label: 'Google Search' },
@@ -21,6 +22,7 @@ const METRIC_NAMES = {
 }
 
 function Benchmarks() {
+  const { t } = useTranslation()
   const [benchmarks, setBenchmarks] = useState([])
   const [industries, setIndustries] = useState([])
   const [selectedIndustry, setSelectedIndustry] = useState('')
@@ -146,7 +148,7 @@ const HIGH_BETTER = ['CTR', 'CVR', 'ROAS']
 // 낮을수록 좋은 지표  
 const LOW_BETTER = ['CPC', 'CPA', 'CPM']
 
-const calcPercentile = (metricName, myValue, avg, p25, p75) => {
+const calcPercentile = (metricName, myValue, avg, p25, p75, t) => {
   const val = parseFloat(myValue)
   if (isNaN(val)) return null
 
@@ -156,25 +158,25 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
   if (p25 == null || p75 == null) {
     if (isHighBetter) {
       return val >= avg
-        ? { label: '평균 이상', color: 'blue', width: '75%' }
-        : { label: '평균 이하', color: 'red', width: '25%' }
+        ? { label: t('page.benchmarks.status.above_avg'), color: 'blue', width: '75%' }
+        : { label: t('page.benchmarks.status.below_avg'), color: 'red', width: '25%' }
     } else {
       return val <= avg
-        ? { label: '평균 이상', color: 'blue', width: '75%' }
-        : { label: '평균 이하', color: 'red', width: '25%' }
+        ? { label: t('page.benchmarks.status.above_avg'), color: 'blue', width: '75%' }
+        : { label: t('page.benchmarks.status.below_avg'), color: 'red', width: '25%' }
     }
   }
 
   if (isHighBetter) {
-    if (val >= p75) return { label: '상위 25% 이내', color: 'green', width: '100%' }
-    if (val >= avg)  return { label: '상위 50% 이내', color: 'blue',  width: '75%'  }
-    if (val >= p25) return { label: '상위 75% 이내', color: 'gray',  width: '50%'  }
-    return              { label: '하위 25%',       color: 'red',   width: '25%'  }
+    if (val >= p75) return { label: t('page.benchmarks.status.top25'), color: 'green', width: '100%' }
+    if (val >= avg)  return { label: t('page.benchmarks.status.top50'), color: 'blue',  width: '75%'  }
+    if (val >= p25) return { label: t('page.benchmarks.status.top75'), color: 'gray',  width: '50%'  }
+    return              { label: t('page.benchmarks.status.bottom25'),       color: 'red',   width: '25%'  }
   } else {
-    if (val <= p25) return { label: '상위 25% 이내', color: 'green', width: '100%' }
-    if (val <= avg)  return { label: '상위 50% 이내', color: 'blue',  width: '75%'  }
-    if (val <= p75) return { label: '상위 75% 이내', color: 'gray',  width: '50%'  }
-    return              { label: '하위 25%',       color: 'red',   width: '25%'  }
+    if (val <= p25) return { label: t('page.benchmarks.status.top25'), color: 'green', width: '100%' }
+    if (val <= avg)  return { label: t('page.benchmarks.status.top50'), color: 'blue',  width: '75%'  }
+    if (val <= p75) return { label: t('page.benchmarks.status.top75'), color: 'gray',  width: '50%'  }
+    return              { label: t('page.benchmarks.status.bottom25'),       color: 'red',   width: '25%'  }
   }
 }
 
@@ -199,7 +201,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
   }
 
   const formatMetricValue = (metric, value) => {
-    if (value === null || value === undefined) return '데이터 없음'
+    if (value === null || value === undefined) return t('page.benchmarks.no_data')
     
     switch (metric) {
       case 'CTR':
@@ -219,7 +221,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold mb-4">Benchmarks</h1>
+        <h1 className="text-3xl font-bold mb-4">{t('page.benchmarks.title')}</h1>
         <p className="text-gray-400">로딩 중...</p>
       </div>
     )
@@ -228,7 +230,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold mb-4">Benchmarks</h1>
+        <h1 className="text-3xl font-bold mb-4">{t('page.benchmarks.title')}</h1>
         <ErrorState message={error} onRetry={fetchBenchmarks} />
       </div>
     )
@@ -239,12 +241,12 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-6">Benchmarks</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('page.benchmarks.title')}</h1>
 
       {/* Filters */}
       <div className="bg-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-4 items-center">
         <div>
-          <label className="block text-sm text-gray-400 mb-1">업종</label>
+          <label className="block text-sm text-gray-400 mb-1">{t('page.benchmarks.industry')}</label>
           <select
             value={selectedIndustry}
             onChange={(e) => setSelectedIndustry(e.target.value)}
@@ -256,7 +258,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
           </select>
         </div>
         <div>
-          <label className="block text-sm text-gray-400 mb-1">플랫폼</label>
+          <label className="block text-sm text-gray-400 mb-1">{t('page.benchmarks.platform')}</label>
           <div className="flex gap-2">
             {PLATFORMS.map(platform => (
               <button
@@ -278,8 +280,8 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
       {!hasData ? (
         <EmptyState
           icon="📊"
-          title="데이터가 없습니다"
-          description="해당 업종/플랫폼 조합의 벤치마크 데이터가 아직 준비 중입니다."
+          title={t('page.benchmarks.no_data')}
+          description={t('page.benchmarks.no_benchmark')}
         />
       ) : (
         <>
@@ -298,8 +300,8 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
                 >
                   <h3 className="text-lg font-semibold mb-2">{METRIC_NAMES[metric]}</h3>
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-400">평균: {formatMetricValue(metric, stats.avg)}</p>
-                    <p className="text-sm text-gray-400">상위 25%: {formatMetricValue(metric, stats.top25)}</p>
+                    <p className="text-sm text-gray-400">{t('page.benchmarks.avg')}: {formatMetricValue(metric, stats.avg)}</p>
+                    <p className="text-sm text-gray-400">{t('page.benchmarks.top25')}: {formatMetricValue(metric, stats.top25)}</p>
                   </div>
                 </div>
               )
@@ -308,11 +310,11 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
 
           {/* User Comparison */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">내 수치 비교</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.benchmarks.my_score')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {METRICS.map(metric => {
                 const stats = getMetricStats(metric)
-                const result = calcPercentile(metric, userMetrics[metric], stats.avg, stats.p25, stats.p75)
+                const result = calcPercentile(metric, userMetrics[metric], stats.avg, stats.p25, stats.p75, t)
                 
                 const colorClass = {
                   green: 'bg-green-500',
@@ -361,7 +363,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75) => {
           {/* Industry Comparison Chart */}
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-              <h2 className="text-xl font-bold">업종 간 비교</h2>
+              <h2 className="text-xl font-bold">{t('page.benchmarks.industry_compare')}</h2>
               <select
                 value={selectedMetricForChart}
                 onChange={(e) => setSelectedMetricForChart(e.target.value)}

@@ -5,7 +5,6 @@ import { useState, useEffect, useRef } from 'react'
 
 function Landing() {
   const { t } = useTranslation()
-  const heroRef = useFadeIn()
   const featuresRef = useFadeIn()
   const statsRef = useFadeIn()
   const ctaRef = useFadeIn()
@@ -45,12 +44,12 @@ function Landing() {
       {/* Hero Section */}
       <div className="min-h-screen flex items-center relative overflow-hidden">
         {/* Background orb */}
-        <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-purple-600/10 rounded-full blur-3xl pointer-events-none -z-0" />
+        <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-purple-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
         
-        <div className="max-w-7xl mx-auto px-8 w-full">
+        <div className="max-w-7xl mx-auto px-8 w-full relative z-10">
           <div className="grid grid-cols-2 gap-20 items-center">
             {/* Left side */}
-            <div className={`${heroRef.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} transition-all duration-700 ease-out`}>
+            <div>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-gray-700 rounded-full text-sm text-gray-400">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                 {t('landing.badge')}
@@ -91,21 +90,21 @@ function Landing() {
                   <div className="py-4 flex justify-between items-center">
                     <div>
                       <div className="text-[10px] text-gray-500 uppercase tracking-widest">CTR</div>
-                      <div className="text-2xl font-bold text-white mt-1">2.5%</div>
-                    </div>
-                    <div className="text-gray-600 text-xs">{t('landing.card_avg')}</div>
-                  </div>
-                  <div className="py-4 flex justify-between items-center">
-                    <div>
-                      <div className="text-[10px] text-gray-500 uppercase tracking-widest">CPC</div>
-                      <div className="text-2xl font-bold text-white mt-1">$2.0</div>
+                      <div className="text-2xl font-bold text-white mt-1">8.92%</div>
                     </div>
                     <div className="text-gray-600 text-xs">{t('landing.card_avg')}</div>
                   </div>
                   <div className="py-4 flex justify-between items-center">
                     <div>
                       <div className="text-[10px] text-gray-500 uppercase tracking-widest">ROAS</div>
-                      <div className="text-2xl font-bold text-white mt-1">3.0x</div>
+                      <div className="text-2xl font-bold text-white mt-1">3.68x</div>
+                    </div>
+                    <div className="text-gray-600 text-xs">{t('landing.card_avg')}</div>
+                  </div>
+                  <div className="py-4 flex justify-between items-center">
+                    <div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-widest">CPA</div>
+                      <div className="text-2xl font-bold text-white mt-1">$47.94</div>
                     </div>
                     <div className="text-gray-600 text-xs">{t('landing.card_avg')}</div>
                   </div>

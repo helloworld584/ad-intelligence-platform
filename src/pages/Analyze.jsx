@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { useSession } from '../contexts/AuthContext'
+import { useTranslation } from '../hooks/useTranslation'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { toDbPlatform } from '../lib/mappings'
 import EmptyState from '../components/EmptyState'
@@ -12,6 +13,7 @@ const PLATFORMS = ['Google Search', 'Google Display', 'Meta']
 
 function Analyze() {
   const { session } = useSession()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     campaignName: '',
@@ -148,7 +150,7 @@ function Analyze() {
       })
       
       setConfig({
-        simulatorDisclaimer: configMap['simulator_disclaimer'] || '수확체감 미반영. 단순 벤치마크 기반 선형 추정치이며 실제 성과와 다를 수 있습니다.',
+        simulatorDisclaimer: configMap['simulator_disclaimer'] || t('page.analyze.disclaimer'),
         topPercentileThreshold: configMap['top_percentile_threshold'] || 0.25
       })
     } catch (error) {
@@ -201,7 +203,7 @@ function Analyze() {
 
   const analyze = async () => {
     if (!session) {
-      alert('AI 진단 리포트를 사용하려면 로그인이 필요합니다.')
+      alert(t('page.analyze.ai_report') + ' ' + t('nav.login'))
       navigate('/login')
       return
     }
@@ -269,7 +271,7 @@ function Analyze() {
       })
       
       if (response.status === 401) {
-        throw new Error('로그인이 필요합니다.')
+        throw new Error(t('nav.login'))
       }
       if (response.status === 429) {
         throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
@@ -280,7 +282,7 @@ function Analyze() {
       setAiDiagnosis(data)
     } catch (err) {
       console.error('Diagnose error:', err)
-      setAiError(err.message || '분석에 실패했습니다. 다시 시도해주세요.')
+      setAiError(err.message || t('page.analyze.error'))
     } finally {
       setAiLoading(false)
     }
@@ -472,7 +474,7 @@ function Analyze() {
 
   const calculateOptimization = async () => {
     if (!session) {
-      alert('예산 최적화 엔진을 사용하려면 로그인이 필요합니다.')
+      alert(t('page.analyze.optimizer') + ' ' + t('nav.login'))
       navigate('/login')
       return
     }
@@ -482,7 +484,7 @@ function Analyze() {
     const industry = formData.industry
     
     if (!totalBudget || !goal || !industry) {
-      alert('총 예산, 목표, 업종을 모두 선택해주세요.')
+      alert(t('page.analyze.total_budget') + ', ' + t('page.analyze.goal') + ', ' + t('page.analyze.industry') + ' ' + '을 모두 선택해주세요.')
       return
     }
     
@@ -580,104 +582,104 @@ function Analyze() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold mb-6">캠페인 분석</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('page.analyze.title')}</h1>
 
       {/* Data Input Section */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">데이터 입력</h2>
+        <h2 className="text-xl font-bold mb-4">{t('page.analyze.input')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">캠페인명</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.campaign_name')}</label>
             <input
               type="text"
               name="campaignName"
               value={formData.campaignName}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="캠페인명 입력"
+              placeholder={t('page.analyze.campaign_name')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">업종</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.industry')}</label>
             <select
               name="industry"
               value={formData.industry}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
             >
-              <option value="">업종 선택</option>
+              <option value="">{t('page.analyze.industry')}</option>
               {INDUSTRIES.map(industry => (
                 <option key={industry} value={industry}>{industry}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">플랫폼</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.platform')}</label>
             <select
               name="platform"
               value={formData.platform}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
             >
-              <option value="">플랫폼 선택</option>
+              <option value="">{t('page.analyze.platform')}</option>
               {PLATFORMS.map(platform => (
                 <option key={platform} value={platform}>{platform}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">예산 ($)</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.budget')}</label>
             <input
               type="number"
               name="budget"
               value={formData.budget}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="예산 입력"
+              placeholder={t('page.analyze.budget')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">노출수</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.impressions')}</label>
             <input
               type="number"
               name="impressions"
               value={formData.impressions}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="노출수 입력"
+              placeholder={t('page.analyze.impressions')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">클릭수</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.clicks')}</label>
             <input
               type="number"
               name="clicks"
               value={formData.clicks}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="클릭수 입력"
+              placeholder={t('page.analyze.clicks')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">전환수</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.conversions')}</label>
             <input
               type="number"
               name="conversions"
               value={formData.conversions}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="전환수 입력"
+              placeholder={t('page.analyze.conversions')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">매출 ($)</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.revenue')}</label>
             <input
               type="number"
               name="revenue"
               value={formData.revenue}
               onChange={handleInputChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder="매출 입력"
+              placeholder={t('page.analyze.revenue')}
             />
           </div>
         </div>
@@ -685,7 +687,7 @@ function Analyze() {
           onClick={analyze}
           className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded"
         >
-          분석하기
+          {t('page.analyze.submit')}
         </button>
       </div>
 
@@ -718,7 +720,7 @@ function Analyze() {
 
           {/* Radar Chart */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">업종 평균 대비 비교</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.analyze.radar_title')}</h2>
             {getBenchmarkMetrics().ctr === undefined && getBenchmarkMetrics().cpc === undefined ? (
               <EmptyState
                 icon="📈"
@@ -744,13 +746,13 @@ function Analyze() {
 
           {/* AI Diagnostic Report */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-6">AI 진단 리포트</h2>
+            <h2 className="text-xl font-bold mb-6">{t('page.analyze.ai_report')}</h2>
 
             {/* 로딩 */}
             {aiLoading && (
               <div className="flex items-center gap-3 text-gray-400 py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
-                <span>AI 분석 중...</span>
+                <span>{t('page.analyze.loading')}</span>
               </div>
             )}
 
@@ -879,7 +881,7 @@ function Analyze() {
 
           {/* Budget Reallocation Simulator */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">예산 재배분 시뮬레이터</h2>
+            <h2 className="text-xl font-bold mb-4">{t('page.analyze.simulator')}</h2>
             {config.simulatorDisclaimer && (
               <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-3 mb-6">
                 <p className="text-yellow-200 text-sm">{config.simulatorDisclaimer}</p>
@@ -915,10 +917,10 @@ function Analyze() {
                       onChange={(e) => handleSliderChange(platform, parseInt(e.target.value))}
                       className="w-full"
                       disabled={budgetAllocation[platform].locked || !roasAvailable}
-                      title={!roasAvailable ? '이 업종은 해당 플랫폼의 ROAS 벤치마크가 없습니다' : ''}
+                      title={!roasAvailable ? t('page.analyze.no_roas') : ''}
                     />
                     {!roasAvailable && (
-                      <p className="text-xs text-gray-400 mt-1">이 업종은 해당 플랫폼의 ROAS 벤치마크가 없습니다</p>
+                      <p className="text-xs text-gray-400 mt-1">{t('page.analyze.no_roas')}</p>
                     )}
                   </div>
                 )
@@ -926,7 +928,7 @@ function Analyze() {
             </div>
             <div className="bg-gray-700 rounded-lg p-4">
               <p className="text-gray-300">
-                벤치마크 기반 선형 추정치: <span className="text-2xl font-bold text-green-400">
+                {t('page.analyze.estimated')}: <span className="text-2xl font-bold text-green-400">
                   {Object.values(budgetAllocation).reduce((sum, data) => sum + data.value, 0) === 100 
                     ? calculateExpectedROAS() 
                     : '-'}
@@ -946,30 +948,30 @@ function Analyze() {
 
           {/* Budget Optimization Engine */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-2">예산 최적화 엔진</h2>
+            <h2 className="text-xl font-bold mb-2">{t('page.analyze.optimizer')}</h2>
             <p className="text-xs text-gray-400 mb-4">업종별 실제 벤치마크 데이터 기반 계산</p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">총 예산 ($)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.total_budget')}</label>
                 <input
                   type="number"
                   name="totalBudget"
                   value={optimizationData.totalBudget}
                   onChange={handleOptimizationChange}
                   className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-                  placeholder="총 예산 입력"
+                  placeholder={t('page.analyze.total_budget')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">목표</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.analyze.goal')}</label>
                 <select
                   name="goal"
                   value={optimizationData.goal}
                   onChange={handleOptimizationChange}
                   className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                 >
-                  <option value="">목표 선택</option>
+                  <option value="">{t('page.analyze.goal')}</option>
                   <option value="클릭 최대화">클릭 최대화</option>
                   <option value="전환 최대화">전환 최대화</option>
                   <option value="ROAS 최대화">ROAS 최대화</option>
@@ -980,7 +982,7 @@ function Analyze() {
                   onClick={calculateOptimization}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded"
                 >
-                  최적화 계산
+                  {t('page.analyze.optimize')}
                 </button>
               </div>
             </div>
