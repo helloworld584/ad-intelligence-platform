@@ -274,7 +274,7 @@ function Analyze() {
         throw new Error(t('nav.login'))
       }
       if (response.status === 429) {
-        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+        throw new Error(t('common.daily_limit'))
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       
@@ -293,7 +293,7 @@ function Analyze() {
     const metricPercentiles = percentiles[metricName.toLowerCase()]
     
     if (!metricPercentiles || metricPercentiles.p25 === null || metricPercentiles.p75 === null) {
-      return { status: 'neutral', message: '기준 데이터 없음' }
+      return { status: 'neutral', message: t('common.no_data_available') }
     }
     
     const p25 = metricPercentiles.p25
@@ -303,19 +303,19 @@ function Analyze() {
     
     if (lowerIsBetter) {
       if (userMetric <= p25) {
-        return { status: 'good', message: '✓ 잘하고 있음' }
+        return { status: 'good', message: `✓ ${t('common.status_good')}` }
       } else if (userMetric >= p75) {
-        return { status: 'bad', message: '⚠ 개선 필요' }
+        return { status: 'bad', message: `⚠ ${t('common.status_bad')}` }
       } else {
-        return { status: 'neutral', message: '→ 평균 수준' }
+        return { status: 'neutral', message: `→ ${t('common.industry_avg')}` }
       }
     } else {
       if (userMetric >= p75) {
-        return { status: 'good', message: '✓ 잘하고 있음' }
+        return { status: 'good', message: `✓ ${t('common.status_good')}` }
       } else if (userMetric <= p25) {
-        return { status: 'bad', message: '⚠ 개선 필요' }
+        return { status: 'bad', message: `⚠ ${t('common.status_bad')}` }
       } else {
-        return { status: 'neutral', message: '→ 평균 수준' }
+        return { status: 'neutral', message: `→ ${t('common.industry_avg')}` }
       }
     }
   }
@@ -724,8 +724,8 @@ function Analyze() {
             {getBenchmarkMetrics().ctr === undefined && getBenchmarkMetrics().cpc === undefined ? (
               <EmptyState
                 icon="📈"
-                title="벤치마크 데이터 없음"
-                description="해당 업종/플랫폼의 비교 데이터가 없습니다."
+                title={t('common.no_benchmark')}
+                description={t('common.no_benchmark_desc')}
               />
             ) : (
               <ResponsiveContainer width="100%" height={250} smHeight={400}>
@@ -735,7 +735,7 @@ function Analyze() {
                   <PolarRadiusAxis 
                     stroke="#9CA3AF" 
                     domain={[0, 2]}
-                    tickFormatter={(value) => value === 1 ? '평균' : value}
+                    tickFormatter={(value) => value === 1 ? t('common.industry_avg') : value}
                   />
                   <Radar name={t('page.analyze.my_score')} dataKey="user" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} />
                   <Radar name={t('page.analyze.industry_avg')} dataKey="benchmark" stroke="#10B981" fill="#10B981" fillOpacity={0.6} />
@@ -787,7 +787,7 @@ function Analyze() {
                               : isAbove ? 'bg-green-600'
                               : 'bg-gray-500'
                             }`}>
-                              {isBelow ? '개선 필요' : isAbove ? '우수' : '평균'}
+                              {isBelow ? t('page.creative.score_poor') : isAbove ? t('page.creative.score_excellent') : t('common.industry_avg')}
                             </span>
                           </div>
                           <p className="text-sm text-gray-300 mb-2">

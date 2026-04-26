@@ -222,7 +222,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75, t) => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold mb-4">{t('page.benchmarks.title')}</h1>
-        <p className="text-gray-400">로딩 중...</p>
+        <p className="text-gray-400">{t('common.loading')}</p>
       </div>
     )
   }
@@ -340,7 +340,7 @@ const calcPercentile = (metricName, myValue, avg, p25, p75, t) => {
                       step="0.01"
                       value={userMetrics[metric]}
                       onChange={(e) => setUserMetrics({ ...userMetrics, [metric]: e.target.value })}
-                      placeholder="값 입력"
+                      placeholder={t('common.enter_value')}
                       className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                     />
                     {result && (

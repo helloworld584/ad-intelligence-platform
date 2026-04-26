@@ -63,13 +63,13 @@ function Competitor() {
       })
 
       if (response.status === 401) {
-        throw new Error('로그인이 필요합니다.')
+        throw new Error(t('common.login_required'))
       }
       if (response.status === 429) {
-        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+        throw new Error(t('common.daily_limit'))
       }
       if (!response.ok) {
-        throw new Error('분석 요청 실패')
+        throw new Error(t('common.analysis_failed'))
       }
 
       const data = await response.json()

@@ -107,7 +107,7 @@ function Trends() {
 
   const showChart = getChartData().length >= 5
 
-  const filteredNews = selectedTag === '전체'
+  const filteredNews = selectedTag === t('page.trends.tag_all')
     ? industryNews
     : industryNews.filter(news => 
         Array.isArray(news.tags) 
@@ -116,7 +116,7 @@ function Trends() {
       )
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '날짜 없음';
+    if (!dateStr) return t('common.no_date');
     const parts = String(dateStr).split(/[-T: ]/);
     if (parts.length >= 3) {
       return `${parts[0]}년 ${parseInt(parts[1])}월 ${parseInt(parts[2])}일`;
@@ -253,10 +253,10 @@ function Trends() {
           ))}
         </div>
 
-        {filteredNews.length === 0 && (
+        {filteredNews.length === 0 && !loading && (
           <EmptyState
             icon="📰"
-            title="뉴스가 없습니다"
+            title={t('common.no_data')}
             description="최신 뉴스를 불러오는 중입니다. 잠시 후 다시 확인해주세요."
           />
         )}

@@ -1,4 +1,23 @@
 export default {
+  common: {
+    loading: '로딩 중...',
+    analyzing: 'AI 분석 중...',
+    error: '오류가 발생했습니다',
+    retry: '다시 시도',
+    no_data: '데이터가 없습니다',
+    enter_value: '값 입력',
+    industry_avg: '업종 평균',
+    login_error: '로그인 중 오류가 발생했습니다.',
+    daily_limit: '일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.',
+    no_benchmark: '벤치마크 데이터 없음',
+    no_benchmark_desc: '해당 업종/플랫폼의 비교 데이터가 없습니다.',
+    status_good: '잘하고 있음',
+    status_bad: '개선 필요',
+    login_required: '로그인이 필요합니다.',
+    analysis_failed: '분석 요청 실패',
+    no_data_available: '기준 데이터 없음',
+    no_date: '날짜 없음'
+  },
   nav: {
     benchmarks: '벤치마크',
     analyze: '분석',

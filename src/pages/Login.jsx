@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
+import { useTranslation } from '../hooks/useTranslation'
 
 function Login() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
@@ -19,7 +21,7 @@ function Login() {
       if (error) throw error
     } catch (error) {
       console.error('Error logging in:', error.message)
-      alert('로그인 중 오류가 발생했습니다.')
+      alert(t('common.login_error'))
     } finally {
       setLoading(false)
     }

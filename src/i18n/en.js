@@ -1,4 +1,23 @@
 export default {
+  common: {
+    loading: 'Loading...',
+    analyzing: 'Analyzing...',
+    error: 'An error occurred',
+    retry: 'Retry',
+    no_data: 'No data available',
+    enter_value: 'Enter value',
+    industry_avg: 'Industry Avg',
+    login_error: 'Login error occurred.',
+    daily_limit: 'Daily AI analysis limit (5 times) exceeded. Please try again tomorrow.',
+    no_benchmark: 'No benchmark data',
+    no_benchmark_desc: 'No comparison data available for this industry/platform.',
+    status_good: 'Performing well',
+    status_bad: 'Needs improvement',
+    login_required: 'Login required.',
+    analysis_failed: 'Analysis request failed',
+    no_data_available: 'No benchmark data available',
+    no_date: 'No date'
+  },
   nav: {
     benchmarks: 'Benchmarks',
     analyze: 'Analyze',

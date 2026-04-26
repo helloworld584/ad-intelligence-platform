@@ -15,7 +15,17 @@ export const useTranslation = () => {
       if (value && value[k] !== undefined) {
         value = value[k]
       } else {
-        return key
+        // Fallback to Korean if key not found in current language
+        value = translations['ko']
+        for (const fallbackKey of keys) {
+          if (value && value[fallbackKey] !== undefined) {
+            value = value[fallbackKey]
+          } else {
+            // Return key itself if not found in Korean either
+            return key
+          }
+        }
+        return value
       }
     }
     

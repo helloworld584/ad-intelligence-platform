@@ -76,10 +76,10 @@ function Creative() {
       })
       
       if (response.status === 401) {
-        throw new Error('로그인이 필요합니다.')
+        throw new Error(t('common.login_required'))
       }
       if (response.status === 429) {
-        throw new Error('일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.')
+        throw new Error(t('common.daily_limit'))
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       
@@ -87,7 +87,7 @@ function Creative() {
       setResult(data)
       setAnalyzed(true)
     } catch (err) {
-      setError(err.message || '분석에 실패했습니다. 다시 시도해주세요.')
+      setError(err.message || t('page.analyze.error'))
     } finally {
       setLoading(false)
     }
