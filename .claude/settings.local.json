@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python model/analyze_data.py)",
+      "Bash(python model/train_model.py)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('model/predict_api.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(npm list *)",
+      "Bash(npm run *)",
+      "Skill(claude-api)"
+    ]
+  }
+}

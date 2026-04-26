@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../contexts/AuthContext'
+import { useLanguage, useTranslation } from '../hooks/useTranslation'
 
 function Navbar() {
   const { session, logout } = useSession()
+  const { lang, changeLanguage } = useLanguage()
+  const { t } = useTranslation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
@@ -31,34 +34,40 @@ function Navbar() {
                 to="/benchmarks"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Benchmarks
+                {t('nav.benchmarks')}
               </Link>
               <Link
                 to="/analyze"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Analyze
+                {t('nav.analyze')}
               </Link>
               <Link
                 to="/competitor"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Competitor
+                {t('nav.competitor')}
               </Link>
               <Link
                 to="/creative"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Creative
+                {t('nav.creative')}
               </Link>
               <Link
                 to="/trends"
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Trends
+                {t('nav.trends')}
               </Link>
             </div>
             <div className="flex items-center space-x-4 ml-4 border-l border-gray-700 pl-4">
+              <button
+                onClick={() => changeLanguage(lang === 'ko' ? 'en' : 'ko')}
+                className="border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400"
+              >
+                {lang === 'ko' ? 'EN' : 'KO'}
+              </button>
               {session ? (
                 <>
                   <span className="text-gray-300 text-sm">{session.user.email}</span>
@@ -66,7 +75,7 @@ function Navbar() {
                     onClick={handleLogout}
                     className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                   >
-                    로그아웃
+                    {t('nav.logout')}
                   </button>
                 </>
               ) : (
@@ -74,7 +83,7 @@ function Navbar() {
                   to="/login"
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  로그인
+                  {t('nav.login')}
                 </Link>
               )}
             </div>
@@ -106,37 +115,43 @@ function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Benchmarks
+                {t('nav.benchmarks')}
               </Link>
               <Link
                 to="/analyze"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Analyze
+                {t('nav.analyze')}
               </Link>
               <Link
                 to="/competitor"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Competitor
+                {t('nav.competitor')}
               </Link>
               <Link
                 to="/creative"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Creative
+                {t('nav.creative')}
               </Link>
               <Link
                 to="/trends"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
-                Trends
+                {t('nav.trends')}
               </Link>
               <div className="border-t border-gray-700 pt-2 mt-2">
+                <button
+                  onClick={() => changeLanguage(lang === 'ko' ? 'en' : 'ko')}
+                  className="border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400 w-full text-left mb-2"
+                >
+                  {lang === 'ko' ? 'EN' : 'KO'}
+                </button>
                 {session ? (
                   <>
                     <span className="text-gray-300 text-sm block px-3 py-2">{session.user.email}</span>
@@ -147,7 +162,7 @@ function Navbar() {
                       }}
                       className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium w-full text-left"
                     >
-                      로그아웃
+                      {t('nav.logout')}
                     </button>
                   </>
                 ) : (
@@ -156,7 +171,7 @@ function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
                   >
-                    로그인
+                    {t('nav.login')}
                   </Link>
                 )}
               </div>
