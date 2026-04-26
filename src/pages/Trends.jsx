@@ -14,18 +14,28 @@ const PLATFORM_COLORS = {
 }
 
 function Trends() {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const [platformTrends, setPlatformTrends] = useState([])
   const [industryNews, setIndustryNews] = useState([])
-  const [selectedTag, setSelectedTag] = useState(t('page.trends.tag_all'))
+  const [selectedTag, setSelectedTag] = useState('all')
   
-  const TAGS = [
-    t('page.trends.tag_all'),
-    t('page.trends.tag_algo'),
-    t('page.trends.tag_feature'),
-    t('page.trends.tag_regulation'),
-    t('page.trends.tag_market')
-  ]
+  const TAG_KEYS = ['all', 'algo', 'feature', 'regulation', 'market']
+  
+  const TAG_LABELS = {
+    all: t('page.trends.tag_all'),
+    algo: t('page.trends.tag_algo'),
+    feature: t('page.trends.tag_feature'),
+    regulation: t('page.trends.tag_regulation'),
+    market: t('page.trends.tag_market')
+  }
+  
+  const TAG_VALUES = {
+    all: 'all',
+    algo: '알고리즘변경',
+    feature: '새기능',
+    regulation: '규제',
+    market: '시장동향'
+  }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -107,21 +117,32 @@ function Trends() {
 
   const showChart = getChartData().length >= 5
 
-  const filteredNews = selectedTag === t('page.trends.tag_all')
+  const filteredNews = selectedTag === 'all'
     ? industryNews
     : industryNews.filter(news => 
         Array.isArray(news.tags) 
-          ? news.tags.includes(selectedTag)
-          : news.tags === selectedTag
+          ? news.tags.includes(TAG_VALUES[selectedTag])
+          : news.tags === TAG_VALUES[selectedTag]
       )
+
+  const tagDisplay = {
+    '알고리즘변경': t('page.trends.tag_algo'),
+    '새기능': t('page.trends.tag_feature'),
+    '규제': t('page.trends.tag_regulation'),
+    '시장동향': t('page.trends.tag_market'),
+  }
+
+  const getTagDisplay = (tag) => {
+    return tagDisplay[tag] || tag
+  }
 
   const formatDate = (dateStr) => {
     if (!dateStr) return t('common.no_date');
-    const parts = String(dateStr).split(/[-T: ]/);
-    if (parts.length >= 3) {
-      return `${parts[0]}년 ${parseInt(parts[1])}월 ${parseInt(parts[2])}일`;
+    const date = new Date(dateStr);
+    if (lang === 'en') {
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
-    return String(dateStr).substring(0, 10);
+    return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   if (loading) {
@@ -213,17 +234,17 @@ function Trends() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">{t('page.trends.news_title')}</h2>
           <div className="flex gap-2 flex-wrap">
-            {TAGS.map(tag => (
+            {TAG_KEYS.map(key => (
               <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
+                key={key}
+                onClick={() => setSelectedTag(key)}
                 className={`px-4 py-2 rounded ${
-                  selectedTag === tag
+                  selectedTag === key
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
-                {tag}
+                {TAG_LABELS[key]}
               </button>
             ))}
           </div>
@@ -240,7 +261,7 @@ function Trends() {
             >
               <h3 className="font-semibold mb-2 text-blue-400 hover:text-blue-300">{news.title}</h3>
               <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-                <span className="bg-gray-700 px-2 py-1 rounded text-xs">{Array.isArray(news.tags) ? news.tags[0] : news.tags}</span>
+                <span className="bg-gray-700 px-2 py-1 rounded text-xs">{Array.isArray(news.tags) ? getTagDisplay(news.tags[0]) : getTagDisplay(news.tags)}</span>
                 <span>{news.source}</span>
                 <span>•</span>
                 <span>{formatDate(news.published_at)}</span>

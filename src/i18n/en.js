@@ -18,6 +18,18 @@ export default {
     no_data_available: 'No benchmark data available',
     no_date: 'No date'
   },
+  industry: {
+    ecommerce: 'E-commerce',
+    education: 'Education',
+    saas: 'SaaS/Tech',
+    finance: 'Finance/Insurance',
+    healthcare: 'Healthcare',
+    travel: 'Travel/Hospitality',
+    realestate: 'Real Estate',
+    retail: 'Retail',
+    b2b: 'B2B',
+    media: 'Media/Entertainment'
+  },
   nav: {
     benchmarks: 'Benchmarks',
     analyze: 'Analyze',

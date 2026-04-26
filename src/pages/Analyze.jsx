@@ -8,12 +8,23 @@ import { toDbPlatform } from '../lib/mappings'
 import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
 
-const INDUSTRIES = ['이커머스', '교육', 'SaaS/테크', '금융/보험', '헬스케어', '여행/숙박', '부동산', '리테일', 'B2B', '미디어/엔터']
+const INDUSTRIES = [
+  { value: '이커머스', key: 'industry.ecommerce' },
+  { value: '교육', key: 'industry.education' },
+  { value: 'SaaS/테크', key: 'industry.saas' },
+  { value: '금융/보험', key: 'industry.finance' },
+  { value: '헬스케어', key: 'industry.healthcare' },
+  { value: '여행/숙박', key: 'industry.travel' },
+  { value: '부동산', key: 'industry.realestate' },
+  { value: '리테일', key: 'industry.retail' },
+  { value: 'B2B', key: 'industry.b2b' },
+  { value: '미디어/엔터', key: 'industry.media' }
+]
 const PLATFORMS = ['Google Search', 'Google Display', 'Meta']
 
 function Analyze() {
   const { session } = useSession()
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     campaignName: '',
@@ -266,7 +277,8 @@ function Analyze() {
             cvr:  buildBenchmarkMetric('CVR'),
             cpa:  buildBenchmarkMetric('CPA'),
             roas: buildBenchmarkMetric('ROAS')
-          }
+          },
+          language: lang
         })
       })
       
@@ -609,7 +621,7 @@ function Analyze() {
             >
               <option value="">{t('page.analyze.industry')}</option>
               {INDUSTRIES.map(industry => (
-                <option key={industry} value={industry}>{industry}</option>
+                <option key={industry.value} value={industry.value}>{t(industry.key)}</option>
               ))}
             </select>
           </div>

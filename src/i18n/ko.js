@@ -18,6 +18,18 @@ export default {
     no_data_available: '기준 데이터 없음',
     no_date: '날짜 없음'
   },
+  industry: {
+    ecommerce: '이커머스',
+    education: '교육',
+    saas: 'SaaS/테크',
+    finance: '금융/보험',
+    healthcare: '헬스케어',
+    travel: '여행/숙박',
+    realestate: '부동산',
+    retail: '리테일',
+    b2b: 'B2B',
+    media: '미디어/엔터'
+  },
   nav: {
     benchmarks: '벤치마크',
     analyze: '분석',

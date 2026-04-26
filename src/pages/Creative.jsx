@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '../utils/supabase'
 import ErrorState from '../components/ErrorState'
 import { useTranslation } from '../hooks/useTranslation'
