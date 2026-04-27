@@ -9,6 +9,7 @@ import Analyze from './pages/Analyze'
 import Competitor from './pages/Competitor'
 import Creative from './pages/Creative'
 import Trends from './pages/Trends'
+import Dashboard from './pages/Dashboard'
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/competitor" element={<Competitor />} />
               <Route path="/creative" element={<Creative />} />
               <Route path="/trends" element={<Trends />} />
+              <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </div>
         </Router>

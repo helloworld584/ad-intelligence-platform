@@ -31,6 +31,7 @@ export default {
     media: '미디어/엔터'
   },
   nav: {
+    dashboard: '대시보드',
     benchmarks: '벤치마크',
     analyze: '분석',
     competitor: '경쟁사',
@@ -64,6 +65,24 @@ export default {
     card_footer: '이커머스 · Google Search 기준'
   },
   page: {
+    dashboard: {
+      title: '내 캠페인',
+      subtitle: '분석 이력을 저장하고 성과 변화를 추적하세요',
+      no_campaigns: '저장된 캠페인이 없습니다',
+      no_campaigns_desc: 'Analyze 페이지에서 캠페인을 분석하면 자동으로 저장됩니다',
+      total_campaigns: '총 캠페인 수',
+      avg_roas: '평균 ROAS',
+      avg_ctr: '평균 CTR',
+      date: '날짜',
+      campaign_name: '캠페인명',
+      industry: '업종',
+      platform: '플랫폼',
+      delete: '삭제',
+      delete_confirm: '정말 삭제하시겠습니까?',
+      campaign_saved: '캠페인이 저장되었습니다',
+      campaign_n: '캠페인',
+      ai_diagnosis: 'AI 진단 결과'
+    },
     benchmarks: {
       title: '벤치마크',
       industry: '업종',

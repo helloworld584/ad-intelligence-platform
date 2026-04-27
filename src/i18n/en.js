@@ -31,6 +31,7 @@ export default {
     media: 'Media/Entertainment'
   },
   nav: {
+    dashboard: 'Dashboard',
     benchmarks: 'Benchmarks',
     analyze: 'Analyze',
     competitor: 'Competitor',
@@ -64,6 +65,24 @@ export default {
     card_footer: 'E-commerce · Google Search avg.'
   },
   page: {
+    dashboard: {
+      title: 'My Campaigns',
+      subtitle: 'Save your analysis history and track performance changes',
+      no_campaigns: 'No saved campaigns',
+      no_campaigns_desc: 'Campaigns are automatically saved when you analyze them on the Analyze page',
+      total_campaigns: 'Total Campaigns',
+      avg_roas: 'Average ROAS',
+      avg_ctr: 'Average CTR',
+      date: 'Date',
+      campaign_name: 'Campaign Name',
+      industry: 'Industry',
+      platform: 'Platform',
+      delete: 'Delete',
+      delete_confirm: 'Are you sure you want to delete?',
+      campaign_saved: 'Campaign saved successfully',
+      campaign_n: 'Campaign',
+      ai_diagnosis: 'AI Diagnosis Results'
+    },
     benchmarks: {
       title: 'Benchmarks',
       industry: 'Industry',

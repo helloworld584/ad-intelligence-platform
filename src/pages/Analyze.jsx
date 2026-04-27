@@ -292,6 +292,39 @@ function Analyze() {
       
       const data = await response.json()
       setAiDiagnosis(data)
+
+      // Save campaign to database
+      try {
+        const saveResponse = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            campaign_name: formData.campaignName,
+            industry: formData.industry,
+            platform: dbPlatform,
+            budget: parseFloat(formData.budget),
+            impressions: parseInt(formData.impressions),
+            clicks: parseInt(formData.clicks),
+            conversions: parseInt(formData.conversions),
+            revenue: parseFloat(formData.revenue),
+            ctr: calculatedMetrics.ctr,
+            cpc: calculatedMetrics.cpc,
+            cvr: calculatedMetrics.cvr,
+            cpa: calculatedMetrics.cpa,
+            roas: calculatedMetrics.roas,
+            ai_diagnosis: data
+          })
+        })
+
+        if (saveResponse.ok) {
+          alert(t('page.dashboard.campaign_saved'))
+        }
+      } catch (saveErr) {
+        console.error('Failed to save campaign:', saveErr)
+      }
     } catch (err) {
       console.error('Diagnose error:', err)
       setAiError(err.message || t('page.analyze.error'))

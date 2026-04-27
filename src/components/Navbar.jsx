@@ -61,6 +61,14 @@ function Navbar() {
               >
                 {t('nav.trends')}
               </Link>
+              {session && (
+                <Link
+                  to="/dashboard"
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  {t('nav.dashboard')}
+                </Link>
+              )}
             </div>
             <div className="flex items-center space-x-4 ml-4 border-l border-gray-700 pl-4">
               <button
@@ -146,6 +154,15 @@ function Navbar() {
               >
                 {t('nav.trends')}
               </Link>
+              {session && (
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  {t('nav.dashboard')}
+                </Link>
+              )}
               <div className="border-t border-gray-700 pt-2 mt-2">
                 <button
                   onClick={() => changeLanguage(lang === 'ko' ? 'en' : 'ko')}
