@@ -266,6 +266,24 @@ class PredictResponse(BaseModel):
     confidence: str
     benchmark_comparison: BenchmarkComparison
 
+# ── /campaigns 스키마 ────────────────────────────────────────
+class CampaignCreate(BaseModel):
+    campaign_name: str | None = None
+    industry: str
+    platform: str
+    budget: float | None = None
+    impressions: int | None = None
+    clicks: int | None = None
+    conversions: int | None = None
+    revenue: float | None = None
+    ctr: float | None = None
+    cpc: float | None = None
+    cvr: float | None = None
+    cpa: float | None = None
+    roas: float | None = None
+    ai_diagnosis: dict | None = None
+    notes: str | None = None
+
 # ── /collect-news 스키마 ─────────────────────────────────────
 class CollectNewsResponse(BaseModel):
     collected: int
@@ -857,4 +875,76 @@ def analyze_creative(req: AnalyzeCreativeRequest, request: Request):
     except Exception as e:
         print(f"[ERROR] /analyze-creative 실패: {str(e)}")
         print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── /campaigns 엔드포인트 ────────────────────────────────────
+@app.post("/campaigns", status_code=201)
+def create_campaign(req: CampaignCreate, request: Request):
+    user_id = _get_user_id(request)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    supabase = state.get("supabase")
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
+
+    try:
+        row = {"user_id": user_id, **req.model_dump(exclude_none=True)}
+        res = supabase.schema("adplatform").table("campaigns").insert(row).execute()
+        inserted = res.data[0]
+        return {"id": inserted["id"], "recorded_at": inserted["recorded_at"]}
+    except Exception as e:
+        print(f"[ERROR] POST /campaigns 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/campaigns")
+def list_campaigns(request: Request):
+    user_id = _get_user_id(request)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    supabase = state.get("supabase")
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
+
+    try:
+        res = (
+            supabase.schema("adplatform")
+            .table("campaigns")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("recorded_at", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print(f"[ERROR] GET /campaigns 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/campaigns/{campaign_id}")
+def delete_campaign(campaign_id: str, request: Request):
+    user_id = _get_user_id(request)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    supabase = state.get("supabase")
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
+
+    try:
+        res = (
+            supabase.schema("adplatform")
+            .table("campaigns")
+            .delete()
+            .eq("id", campaign_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(status_code=404, detail="캠페인을 찾을 수 없거나 권한이 없습니다.")
+        return {"deleted": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] DELETE /campaigns/{campaign_id} 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
