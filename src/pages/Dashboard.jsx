@@ -16,40 +16,37 @@ function Dashboard() {
   const [selectedCampaign, setSelectedCampaign] = useState(null)
 
   useEffect(() => {
-    if (!session) {
-      navigate('/login')
-      return
-    }
-    fetchCampaigns()
-  }, [session, navigate])
-
-  const fetchCampaigns = async () => {
-    try {
-      setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+    const load = async () => {
+      try {
+        setLoading(true)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          navigate('/login')
+          return
         }
-      })
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        })
 
-      if (response.status === 401) {
-        navigate('/login')
-        return
+        if (response.status === 401) {
+          navigate('/login')
+          return
+        }
+
+        if (!response.ok) throw new Error('Failed to fetch campaigns')
+
+        const data = await response.json()
+        setCampaigns(data || [])
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
       }
-
-      if (!response.ok) throw new Error('Failed to fetch campaigns')
-
-      const data = await response.json()
-      setCampaigns(data || [])
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
     }
-  }
+    load()
+  }, [])
 
   const deleteCampaign = async (id) => {
     if (!window.confirm(t('page.dashboard.delete_confirm'))) return
