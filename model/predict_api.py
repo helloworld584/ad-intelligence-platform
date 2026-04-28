@@ -347,6 +347,7 @@ class CollectNewsResponse(BaseModel):
     collected: int
     inserted: int
     skipped: int
+    updated_existing: int = 0
     sources: list[str]
 
 # ── /generate-impact 스키마 ──────────────────────────────────
@@ -852,7 +853,7 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
             continue
 
     if not all_rows:
-        return CollectNewsResponse(collected=0, inserted=0, skipped=0, sources=[])
+        return CollectNewsResponse(collected=0, inserted=0, skipped=0, updated_existing=0, sources=[])
 
     # 기존 URL 조회 → 신규만 삽입
     url_list = [r["url"] for r in all_rows]
@@ -880,10 +881,58 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
     if new_rows:
         supabase.schema("adplatform").table("industry_news").insert(new_rows).execute()
 
+    # 기존 뉴스 중 impact_comment가 null이거나 기존 템플릿인 행 최대 10건 업데이트
+    updated_existing = 0
+    try:
+        null_res = (
+            supabase.schema("adplatform")
+            .table("industry_news")
+            .select("id, title, summary, tags")
+            .is_("impact_comment", "null")
+            .order("published_at", desc=True)
+            .limit(10)
+            .execute()
+        )
+        stale_rows = list(null_res.data or [])
+
+        remaining = 10 - len(stale_rows)
+        if remaining > 0:
+            tmpl_res = (
+                supabase.schema("adplatform")
+                .table("industry_news")
+                .select("id, title, summary, tags")
+                .like("impact_comment", "%관련 동향 모니터링%")
+                .order("published_at", desc=True)
+                .limit(remaining)
+                .execute()
+            )
+            stale_rows += list(tmpl_res.data or [])
+
+        for row in stale_rows:
+            try:
+                comment = _generate_impact_comment(
+                    row["title"],
+                    row.get("summary") or "",
+                    row.get("tags") or [],
+                )
+                (
+                    supabase.schema("adplatform")
+                    .table("industry_news")
+                    .update({"impact_comment": comment})
+                    .eq("id", row["id"])
+                    .execute()
+                )
+                updated_existing += 1
+            except Exception as e:
+                print(f"[WARN] impact_comment UPDATE 실패 (id={row['id']}): {e}")
+    except Exception as e:
+        print(f"[WARN] 기존 뉴스 impact_comment 업데이트 조회 실패: {e}")
+
     return CollectNewsResponse(
         collected=len(all_rows),
         inserted=len(new_rows),
         skipped=skipped,
+        updated_existing=updated_existing,
         sources=sorted(active_sources),
     )
 
