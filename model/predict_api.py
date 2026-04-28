@@ -1001,33 +1001,29 @@ _METRIC_INTERPRETATIONS: dict[tuple[str, str], str] = {
     ("roas", "below"): "ROAS가 업종 평균 대비 낮아 광고 수익성 개선이 필요함",
 }
 
-def _get_pattern_insight(z_scores: dict[str, float]) -> str:
-    z_ctr  = z_scores.get("ctr")
-    z_cpc  = z_scores.get("cpc")
-    z_cvr  = z_scores.get("cvr")
-    z_roas = z_scores.get("roas")
+def _get_pattern_insight(contributing: list[ContributingMetric]) -> str:
+    if not contributing:
+        return "모든 지표가 업종 정상 범위 내에 있습니다."
 
-    if z_ctr is not None and z_cvr is not None:
-        if z_ctr < 0 and z_cvr < 0:
-            return "클릭과 전환 모두 저조 → 광고 소재와 랜딩 페이지 동시 점검 필요"
-        if z_ctr < 0 and z_cvr > 0:
-            return "클릭은 적지만 전환율 높음 → 타겟이 정교하나 도달 범위가 좁음"
-        if z_ctr > 0 and z_cvr < 0:
-            return "클릭은 많지만 전환 저조 → 랜딩 페이지 또는 오퍼 문제"
+    below = {c.metric for c in contributing if c.direction == "below"}
+    above = {c.metric for c in contributing if c.direction == "above"}
 
-    if z_cpc is not None and z_roas is not None and z_cpc < 0 and z_roas < 0:
+    if "ctr" in below and "cvr" in below:
+        return "클릭과 전환 모두 저조 → 광고 소재와 랜딩 페이지 동시 점검 필요"
+    if "ctr" in below and "cvr" in above:
+        return "클릭은 적지만 전환율 높음 → 타겟이 정교하나 도달 범위가 좁음"
+    if "ctr" in above and "cvr" in below:
+        return "클릭은 많지만 전환 저조 → 랜딩 페이지 또는 오퍼 문제"
+    if "cpc" in below and "roas" in below:
+        return "클릭 비용은 낮지만 수익 저조 → 전환 품질 문제"
+    if "cpc" in above and "roas" in below:
         return "비용 대비 수익 악화 → 입찰가 또는 예산 배분 재검토"
+    if "cpa" in below:
+        return "전환 비용이 높음 → 타겟팅 또는 랜딩 페이지 최적화 필요"
 
-    if z_scores and all(abs(z) <= 1.5 for z in z_scores.values()):
-        return "모든 지표가 업종 정상 범위 내"
-
-    if z_scores:
-        worst_m, worst_z = max(z_scores.items(), key=lambda kv: abs(kv[1]))
-        label = _METRIC_LABELS.get(worst_m, worst_m)
-        direction = "낮음" if worst_z < 0 else "높음"
-        return f"{label}이(가) 업종 평균 대비 크게 {direction} → 해당 지표 집중 점검 필요"
-
-    return "분석 가능한 지표 없음"
+    worst = max(contributing, key=lambda c: abs(c.z_score))
+    label = _METRIC_LABELS.get(worst.metric, worst.metric)
+    return f"{label}가 업종 평균 대비 가장 크게 벗어나 있습니다."
 
 # ── /analyze-anomaly 엔드포인트 ──────────────────────────────
 @app.post("/analyze-anomaly", response_model=AnomalyResponse)
@@ -1120,6 +1116,6 @@ def analyze_anomaly(req: AnomalyRequest):
         status=status,
         status_en=status_en,
         contributing_metrics=contributing,
-        pattern_insight=_get_pattern_insight(z_scores),
+        pattern_insight=_get_pattern_insight(contributing),
         available_metrics=available,
     )
