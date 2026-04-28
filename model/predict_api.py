@@ -109,6 +109,7 @@ _EN_STOPWORDS = {
 # ── 앱 상태 / 캐시 ───────────────────────────────────────────
 state: dict = {}
 diagnose_cache: dict = {}
+_impact_cache: dict = {}
 
 # ── Rate Limiting (메모리 기반 일일 카운터) ──────────────────
 _DAILY_AI_LIMIT = 5
@@ -347,6 +348,15 @@ class CollectNewsResponse(BaseModel):
     inserted: int
     skipped: int
     sources: list[str]
+
+# ── /generate-impact 스키마 ──────────────────────────────────
+class ImpactRequest(BaseModel):
+    title: str
+    summary: str
+    tags: list[str]
+
+class ImpactResponse(BaseModel):
+    impact_comment: str
 
 # ── /analyze-creative 스키마 ─────────────────────────────────
 class AnalyzeCreativeRequest(BaseModel):
@@ -745,6 +755,51 @@ def _make_impact_comment(title: str, tags: list[str]) -> str:
         return f"광고주에게 미치는 영향: {title} — 시장 변화에 따른 예산 배분 및 전략 재검토 필요"
     return f"광고주에게 미치는 영향: {title} — 관련 동향 모니터링 및 광고 전략 검토 필요"
 
+def _generate_impact_comment(title: str, summary: str, tags: list[str]) -> str:
+    cache_key = hashlib.sha256(f"{title}{summary}".encode()).hexdigest()
+    if cache_key in _impact_cache:
+        return _impact_cache[cache_key]
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return _make_impact_comment(title, tags)
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            system=(
+                "당신은 디지털 광고 전문가입니다. "
+                "주어진 업계 뉴스가 광고주에게 미치는 실질적 영향을 "
+                "2~3문장으로 간결하게 설명하세요. "
+                "수치나 구체적 예시를 포함하면 좋습니다. "
+                "마크다운 없이 순수 텍스트만 반환하세요."
+            ),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"제목: {title}\n"
+                    f"요약: {summary}\n"
+                    f"태그: {', '.join(tags)}\n\n"
+                    "이 뉴스가 광고주(Google Ads/Meta Ads 운영자)에게 "
+                    "미치는 실질적 영향을 2~3문장으로 설명하세요."
+                ),
+            }],
+        )
+        result = resp.content[0].text.strip()
+        _impact_cache[cache_key] = result
+        return result
+    except Exception as e:
+        print(f"[WARN] _generate_impact_comment Claude 호출 실패: {e}")
+        return _make_impact_comment(title, tags)
+
+# ── /generate-impact 엔드포인트 ──────────────────────────────
+@app.post("/generate-impact", response_model=ImpactResponse)
+def generate_impact(req: ImpactRequest):
+    comment = _generate_impact_comment(req.title, req.summary, req.tags)
+    return ImpactResponse(impact_comment=comment)
+
 @app.post("/collect-news", response_model=CollectNewsResponse)
 def collect_news(x_cron_secret: str | None = Header(default=None)):
     cron_secret = os.getenv("CRON_SECRET")
@@ -812,6 +867,15 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
 
     new_rows = [r for r in all_rows if r["url"] not in existing_urls]
     skipped = len(all_rows) - len(new_rows)
+
+    # 신규 뉴스 최대 10건에 한해 Claude API로 impact_comment 생성 (나머지는 템플릿 유지)
+    for row in new_rows[:10]:
+        try:
+            row["impact_comment"] = _generate_impact_comment(
+                row["title"], row["summary"], row["tags"]
+            )
+        except Exception as e:
+            print(f"[WARN] collect-news impact_comment 생성 실패: {e}")
 
     if new_rows:
         supabase.schema("adplatform").table("industry_news").insert(new_rows).execute()
