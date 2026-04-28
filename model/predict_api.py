@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
+from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -155,6 +156,14 @@ async def lifespan(app: FastAPI):
         state["supabase_admin"] = create_client(supabase_url, SUPABASE_SERVICE_KEY)
     else:
         state["supabase_admin"] = state["supabase"]
+
+    try:
+        from sentence_transformers import SentenceTransformer
+        state["semantic_model"] = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+        print("semantic_model 로드 완료")
+    except Exception as e:
+        print(f"[WARN] sentence-transformers 로드 실패: {e}")
+        state["semantic_model"] = None
 
     print(f"ANTHROPIC_API_KEY 설정 여부: {'설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '없음'}")
     print(f"SUPABASE_SERVICE_KEY 설정 여부: {'설정됨' if SUPABASE_SERVICE_KEY else '없음'}")
@@ -317,6 +326,27 @@ class AnomalyResponse(BaseModel):
     contributing_metrics: list[ContributingMetric]
     pattern_insight: str
     available_metrics: list[str]
+
+# ── /analyze-semantic-gap 스키마 ─────────────────────────────
+class SemanticGapRequest(BaseModel):
+    my_copies: list[str]
+    competitor_copies: list[str]
+
+class SimilarCopy(BaseModel):
+    copy: str
+    similarity: float
+
+class GapCopy(BaseModel):
+    copy: str
+    similarity: float
+
+class SemanticGapResponse(BaseModel):
+    avg_similarity: float
+    my_diversity: float
+    competitor_diversity: float
+    most_similar_competitors: list[SimilarCopy]
+    gap_copies: list[GapCopy]
+    insight: str
 
 # ── /collect-news 스키마 ─────────────────────────────────────
 class CollectNewsResponse(BaseModel):
@@ -1118,4 +1148,64 @@ def analyze_anomaly(req: AnomalyRequest):
         contributing_metrics=contributing,
         pattern_insight=_get_pattern_insight(contributing),
         available_metrics=available,
+    )
+
+# ── /analyze-semantic-gap 엔드포인트 ─────────────────────────
+@app.post("/analyze-semantic-gap", response_model=SemanticGapResponse)
+def analyze_semantic_gap(req: SemanticGapRequest):
+    model = state.get("semantic_model")
+    if model is None:
+        raise HTTPException(status_code=503, detail="Semantic 모델이 로드되지 않았습니다.")
+    if not req.my_copies:
+        raise HTTPException(status_code=422, detail="my_copies는 비어 있을 수 없습니다.")
+    if not req.competitor_copies:
+        raise HTTPException(status_code=422, detail="competitor_copies는 비어 있을 수 없습니다.")
+
+    my_emb   = model.encode(req.my_copies)
+    comp_emb = model.encode(req.competitor_copies)
+
+    # A. 내 광고 vs 경쟁사 평균 유사도
+    sim_matrix   = cosine_similarity(my_emb, comp_emb)
+    avg_similarity = round(float(sim_matrix.mean()), 4)
+
+    # B. 내 광고 다양성
+    my_sim      = cosine_similarity(my_emb, my_emb)
+    my_diversity = round(1 - float(my_sim.mean()), 4)
+
+    # C. 경쟁사 다양성
+    comp_sim         = cosine_similarity(comp_emb, comp_emb)
+    comp_diversity   = round(1 - float(comp_sim.mean()), 4)
+
+    # D & E. 경쟁사 카피별 내 광고와의 평균 유사도로 top/bottom 추출
+    comp_scores = sim_matrix.mean(axis=0)
+    desc_idx = np.argsort(comp_scores)[::-1]
+    asc_idx  = np.argsort(comp_scores)
+
+    most_similar = [
+        SimilarCopy(copy=req.competitor_copies[i], similarity=round(float(comp_scores[i]), 4))
+        for i in desc_idx[:3]
+    ]
+    gap_copies = [
+        GapCopy(copy=req.competitor_copies[i], similarity=round(float(comp_scores[i]), 4))
+        for i in asc_idx[:3]
+    ]
+
+    # 인사이트
+    if avg_similarity >= 0.8:
+        insight = "내 광고가 경쟁사와 매우 유사 → 차별화 전략 필요"
+    elif avg_similarity >= 0.6:
+        insight = "경쟁사와 유사한 메시지 → 일부 차별화 요소 추가 권장"
+    else:
+        insight = "경쟁사와 차별화된 메시지 → 독자적 포지셔닝 유지"
+
+    if my_diversity < 0.3:
+        insight += " + 내 광고들이 매우 유사 → 다양한 소재 테스트 권장"
+
+    return SemanticGapResponse(
+        avg_similarity=avg_similarity,
+        my_diversity=my_diversity,
+        competitor_diversity=comp_diversity,
+        most_similar_competitors=most_similar,
+        gap_copies=gap_copies,
+        insight=insight,
     )

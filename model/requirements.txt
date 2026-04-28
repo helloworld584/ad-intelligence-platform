@@ -10,3 +10,5 @@ supabase
 anthropic
 feedparser
 slowapi
+sentence-transformers
+torch
