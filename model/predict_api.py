@@ -145,12 +145,19 @@ async def lifespan(app: FastAPI):
 
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
+    SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
     if supabase_url and supabase_key:
         state["supabase"] = create_client(supabase_url, supabase_key)
     else:
         state["supabase"] = None
 
+    if supabase_url and SUPABASE_SERVICE_KEY:
+        state["supabase_admin"] = create_client(supabase_url, SUPABASE_SERVICE_KEY)
+    else:
+        state["supabase_admin"] = state["supabase"]
+
     print(f"ANTHROPIC_API_KEY 설정 여부: {'설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '없음'}")
+    print(f"SUPABASE_SERVICE_KEY 설정 여부: {'설정됨' if SUPABASE_SERVICE_KEY else '없음'}")
     print("모델 및 Supabase 클라이언트 로드 완료")
     yield
     state.clear()
@@ -884,13 +891,13 @@ def create_campaign(req: CampaignCreate, request: Request):
     if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
-    supabase = state.get("supabase")
-    if supabase is None:
+    supabase_admin = state.get("supabase_admin")
+    if supabase_admin is None:
         raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
 
     try:
         row = {"user_id": user_id, **req.model_dump(exclude_none=True)}
-        res = supabase.schema("adplatform").table("campaigns").insert(row).execute()
+        res = supabase_admin.schema("adplatform").table("campaigns").insert(row).execute()
         inserted = res.data[0]
         return {"id": inserted["id"], "recorded_at": inserted["recorded_at"]}
     except Exception as e:
@@ -903,13 +910,13 @@ def list_campaigns(request: Request):
     if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
-    supabase = state.get("supabase")
-    if supabase is None:
+    supabase_admin = state.get("supabase_admin")
+    if supabase_admin is None:
         raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
 
     try:
         res = (
-            supabase.schema("adplatform")
+            supabase_admin.schema("adplatform")
             .table("campaigns")
             .select("*")
             .eq("user_id", user_id)
@@ -927,13 +934,13 @@ def delete_campaign(campaign_id: str, request: Request):
     if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
-    supabase = state.get("supabase")
-    if supabase is None:
+    supabase_admin = state.get("supabase_admin")
+    if supabase_admin is None:
         raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
 
     try:
         res = (
-            supabase.schema("adplatform")
+            supabase_admin.schema("adplatform")
             .table("campaigns")
             .delete()
             .eq("id", campaign_id)
