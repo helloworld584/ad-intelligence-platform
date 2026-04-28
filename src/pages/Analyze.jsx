@@ -931,68 +931,68 @@ function Analyze() {
                     )
                   })()}
                 </div>
+              </>
+            )}
 
-                {/* Save Buttons */}
-                {analyzed && (
-                  <div className="mt-6">
-                    {saveStatus === null && (
-                      <div>
-                        {aiDiagnosis ? (
-                          <button
-                            onClick={handleSaveCampaign}
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
-                          >
-                            이 분석 저장하기
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleSaveCampaign}
-                            className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                          >
-                            수치만 저장하기
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {saveStatus === 'saving' && (
+            {/* Save Buttons */}
+            {analyzed && (
+              <div className="mt-6">
+                {saveStatus === null && (
+                  <div>
+                    {aiDiagnosis ? (
                       <button
-                        disabled
-                        className={`${
-                          aiDiagnosis
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                            : 'border border-gray-600 text-gray-400'
-                        } px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2`}
+                        onClick={handleSaveCampaign}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
                       >
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        저장 중...
+                        이 분석 저장하기
                       </button>
-                    )}
-
-                    {saveStatus === 'saved' && (
-                      <div className="text-green-400">
-                        ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
-                      </div>
-                    )}
-
-                    {saveStatus === 'error' && (
-                      <div>
-                        <button
-                          onClick={handleSaveCampaign}
-                          className={`${
-                            aiDiagnosis
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                              : 'border border-gray-600 text-gray-400'
-                          } px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity`}
-                        >
-                          다시 시도
-                        </button>
-                        <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
-                      </div>
+                    ) : (
+                      <button
+                        onClick={handleSaveCampaign}
+                        className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                      >
+                        수치만 저장하기
+                      </button>
                     )}
                   </div>
                 )}
-              </>
+
+                {saveStatus === 'saving' && (
+                  <button
+                    disabled
+                    className={`${
+                      aiDiagnosis
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                        : 'border border-gray-600 text-gray-400'
+                    } px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2`}
+                  >
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    저장 중...
+                  </button>
+                )}
+
+                {saveStatus === 'saved' && (
+                  <div className="text-green-400">
+                    ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
+                  </div>
+                )}
+
+                {saveStatus === 'error' && (
+                  <div>
+                    <button
+                      onClick={handleSaveCampaign}
+                      className={`${
+                        aiDiagnosis
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          : 'border border-gray-600 text-gray-400'
+                      } px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity`}
+                    >
+                      다시 시도
+                    </button>
+                    <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

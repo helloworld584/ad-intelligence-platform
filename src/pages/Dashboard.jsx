@@ -85,19 +85,23 @@ function Dashboard() {
     return campaign.campaign_name || `${t('page.dashboard.campaign_n')} ${index + 1}`
   }
 
-  // Get unique industry+platform combinations
+  // Get unique campaign name + platform combinations
   const getUniqueGroups = () => {
     const groups = new Set()
     campaigns.forEach(c => {
-      const key = `${c.industry} · ${c.platform}`
+      const name = c.campaign_name || c.industry
+      const key = `${name} · ${c.platform}`
       groups.add(key)
     })
     return Array.from(groups)
   }
 
-  // Filter campaigns by selected group
+  // Filter campaigns by selected group (for chart and summary cards only)
   const filteredCampaigns = selectedGroup
-    ? campaigns.filter(c => `${c.industry} · ${c.platform}` === selectedGroup)
+    ? campaigns.filter(c => {
+        const name = c.campaign_name || c.industry
+        return `${name} · ${c.platform}` === selectedGroup
+      })
     : campaigns
 
   // Calculate summary stats (filtered by selected group)
@@ -110,17 +114,26 @@ function Dashboard() {
     .reduce((sum, c) => sum + c.ctr, 0) / filteredCampaigns.filter(c => c.ctr != null).length || 0
   const aiDiagnosisCount = filteredCampaigns.filter(c => c.ai_diagnosis).length
 
-  // Prepare chart data (filtered by selected group)
+  // Prepare chart data (filtered by selected group, sorted by recorded_at ascending)
   const chartData = filteredCampaigns
     .map(c => ({
       date: formatDate(c.recorded_at),
       CTR: c.ctr ? (c.ctr * 100) : 0,
       ROAS: c.roas || 0
     }))
-    .reverse()
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
 
   const uniqueGroups = getUniqueGroups()
   const showDropdown = uniqueGroups.length > 1
+
+  // Set default selection to most recent campaign's group
+  useEffect(() => {
+    if (campaigns.length > 0 && !selectedGroup) {
+      const mostRecent = campaigns.sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0]
+      const name = mostRecent.campaign_name || mostRecent.industry
+      setSelectedGroup(`${name} · ${mostRecent.platform}`)
+    }
+  }, [campaigns, selectedGroup])
 
   // Calculate max values for y-axis domains
   const ctrs = chartData.map(d => d.CTR)
@@ -202,7 +215,7 @@ function Dashboard() {
             </div>
             {chartData.length < 2 ? (
               <div className="flex items-center justify-center py-20 text-gray-400">
-                시계열 분석을 위해 동일 업종·플랫폼 캠페인을 2개 이상 저장하세요
+                시계열 비교를 위해 동일 조건의 캠페인을 2개 이상 저장하세요
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
@@ -248,7 +261,7 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {filteredCampaigns.map((campaign, index) => (
+                  {campaigns.map((campaign, index) => (
                     <tr
                       key={campaign.id}
                       className="hover:bg-gray-800 cursor-pointer"
