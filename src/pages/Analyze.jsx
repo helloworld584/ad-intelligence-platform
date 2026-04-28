@@ -357,9 +357,9 @@ function Analyze() {
           clicks: parseInt(formData.clicks),
           conversions: parseInt(formData.conversions),
           revenue: parseFloat(formData.revenue),
-          ctr: calculatedMetrics.ctr,
+          ctr: calculatedMetrics.ctr / 100, // Convert % to decimal for storage
           cpc: calculatedMetrics.cpc,
-          cvr: calculatedMetrics.cvr,
+          cvr: calculatedMetrics.cvr / 100, // Convert % to decimal for storage
           cpa: calculatedMetrics.cpa,
           roas: calculatedMetrics.roas,
           ai_diagnosis: aiDiagnosis
@@ -933,108 +933,68 @@ function Analyze() {
                 </div>
 
                 {/* Save Buttons */}
-                {saveStatus === null && (
+                {analyzed && (
                   <div className="mt-6">
-                    {aiDiagnosis ? (
+                    {saveStatus === null && (
+                      <div>
+                        {aiDiagnosis ? (
+                          <button
+                            onClick={handleSaveCampaign}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            이 분석 저장하기
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleSaveCampaign}
+                            className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                          >
+                            수치만 저장하기
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {saveStatus === 'saving' && (
                       <button
-                        onClick={handleSaveCampaign}
-                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                        disabled
+                        className={`${
+                          aiDiagnosis
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                            : 'border border-gray-600 text-gray-400'
+                        } px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2`}
                       >
-                        이 분석 저장하기
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleSaveCampaign}
-                        className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                      >
-                        수치만 저장하기
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        저장 중...
                       </button>
                     )}
-                  </div>
-                )}
 
-                {saveStatus === 'saving' && (
-                  <div className="mt-6">
-                    <button
-                      disabled
-                      className={`${
-                        aiDiagnosis
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                          : 'border border-gray-600 text-gray-400'
-                      } px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2`}
-                    >
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      저장 중...
-                    </button>
-                  </div>
-                )}
+                    {saveStatus === 'saved' && (
+                      <div className="text-green-400">
+                        ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
+                      </div>
+                    )}
 
-                {saveStatus === 'saved' && (
-                  <div className="mt-6 text-green-400">
-                    ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
-                  </div>
-                )}
-
-                {saveStatus === 'error' && (
-                  <div className="mt-6">
-                    <button
-                      onClick={handleSaveCampaign}
-                      className={`${
-                        aiDiagnosis
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                          : 'border border-gray-600 text-gray-400'
-                      } px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity`}
-                    >
-                      다시 시도
-                    </button>
-                    <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
+                    {saveStatus === 'error' && (
+                      <div>
+                        <button
+                          onClick={handleSaveCampaign}
+                          className={`${
+                            aiDiagnosis
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                              : 'border border-gray-600 text-gray-400'
+                          } px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity`}
+                        >
+                          다시 시도
+                        </button>
+                        <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
             )}
           </div>
-
-          {/* Save Buttons (when analyzed but no AI diagnosis) */}
-          {analyzed && !aiDiagnosis && !aiLoading && !aiError && (
-            <div className="mt-6">
-              {saveStatus === null && (
-                <button
-                  onClick={handleSaveCampaign}
-                  className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                >
-                  수치만 저장하기
-                </button>
-              )}
-
-              {saveStatus === 'saving' && (
-                <button
-                  disabled
-                  className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2"
-                >
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-                  저장 중...
-                </button>
-              )}
-
-              {saveStatus === 'saved' && (
-                <div className="text-green-400">
-                  ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
-                </div>
-              )}
-
-              {saveStatus === 'error' && (
-                <div>
-                  <button
-                    onClick={handleSaveCampaign}
-                    className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                  >
-                    다시 시도
-                  </button>
-                  <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Budget Reallocation Simulator */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">

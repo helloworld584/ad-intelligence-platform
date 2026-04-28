@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { useSession } from '../contexts/AuthContext'
 import { useTranslation } from '../hooks/useTranslation'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import EmptyState from '../components/EmptyState'
 
 function Dashboard() {
@@ -122,6 +122,12 @@ function Dashboard() {
   const uniqueGroups = getUniqueGroups()
   const showDropdown = uniqueGroups.length > 1
 
+  // Calculate max values for y-axis domains
+  const ctrs = chartData.map(d => d.CTR)
+  const roases = chartData.map(d => d.ROAS)
+  const maxCtr = Math.max(...ctrs, 0)
+  const maxRoas = Math.max(...roases, 0)
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -203,14 +209,20 @@ function Dashboard() {
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="date" stroke="#9CA3AF" />
-                  <YAxis yAxisId="left" stroke="#9CA3AF" orientation="left" />
-                  <YAxis yAxisId="right" stroke="#9CA3AF" orientation="right" />
+                  <YAxis yAxisId="left" stroke="#9CA3AF" orientation="left" domain={[0, maxCtr * 1.2]} />
+                  <YAxis yAxisId="right" stroke="#9CA3AF" orientation="right" domain={[0, maxRoas * 1.2]} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
                     itemStyle={{ color: '#E5E7EB' }}
+                    formatter={(value, name) => {
+                      if (name === 'CTR') return [value.toFixed(2) + '%', 'CTR']
+                      if (name === 'ROAS') return [value.toFixed(2) + 'x', 'ROAS']
+                      return [value, name]
+                    }}
                   />
-                  <Line yAxisId="left" type="monotone" dataKey="CTR" stroke="#4D71F1" strokeWidth={2} dot={false} />
-                  <Line yAxisId="right" type="monotone" dataKey="ROAS" stroke="#7C3AED" strokeWidth={2} dot={false} />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="CTR" stroke="#4D71F1" strokeWidth={2} dot={false} name="CTR" />
+                  <Line yAxisId="right" type="monotone" dataKey="ROAS" stroke="#7C3AED" strokeWidth={2} dot={false} name="ROAS" />
                 </LineChart>
               </ResponsiveContainer>
             )}
