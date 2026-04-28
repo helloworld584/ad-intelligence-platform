@@ -13,8 +13,11 @@ function Competitor() {
   const [bulkText, setBulkText] = useState('')
   const [singleText, setSingleText] = useState('')
   const [textList, setTextList] = useState([])
+  const [myCopies, setMyCopies] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [semanticGapLoading, setSemanticGapLoading] = useState(false)
   const [results, setResults] = useState(null)
+  const [semanticGapResult, setSemanticGapResult] = useState(null)
   const [error, setError] = useState(null)
 
   const handleBulkTextChange = (e) => {
@@ -42,8 +45,10 @@ function Competitor() {
     }
 
     setAnalyzing(true)
+    setSemanticGapLoading(true)
     setError(null)
     setResults(null)
+    setSemanticGapResult(null)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -75,10 +80,37 @@ function Competitor() {
       const data = await response.json()
       console.log('API Response:', data)
       setResults(data)
+
+      // Call semantic gap API if my_copies is provided
+      if (myCopies.trim()) {
+        const myCopiesArray = myCopies.split('\n').filter(line => line.trim())
+        if (myCopiesArray.length > 0) {
+          try {
+            const semanticResponse = await fetch(`${apiUrl}/analyze-semantic-gap`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                my_copies: myCopiesArray,
+                competitor_copies: textList
+              })
+            })
+            if (semanticResponse.ok) {
+              const semanticData = await semanticResponse.json()
+              setSemanticGapResult(semanticData)
+            }
+          } catch (err) {
+            console.error('Semantic gap analysis error:', err)
+            // Silent failure - don't show error to user
+          }
+        }
+      }
     } catch (err) {
       setError(err.message || t('page.competitor.analyze_error'))
     } finally {
       setAnalyzing(false)
+      setSemanticGapLoading(false)
     }
   }
 
@@ -131,6 +163,18 @@ function Competitor() {
             value={brandName}
             onChange={(e) => setBrandName(e.target.value)}
             placeholder={t('page.competitor.brand')}
+            className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        {/* My Ad Copies (Optional) */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-1">내 광고 카피 (선택)</label>
+          <textarea
+            value={myCopies}
+            onChange={(e) => setMyCopies(e.target.value)}
+            rows={4}
+            placeholder="내 광고 카피를 입력하면 경쟁사와의 의미론적 차이를 분석합니다"
             className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -384,6 +428,100 @@ function Competitor() {
               </div>
             )}
           </div>
+
+          {/* Semantic Gap Analysis */}
+          {semanticGapResult && (
+            <div className="bg-gray-800 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-bold mb-1">의미론적 광고 갭 분석</h2>
+              <p className="text-sm text-gray-400 mb-4">내 광고와 경쟁사 광고의 메시지 포지셔닝 비교</p>
+
+              {semanticGapLoading ? (
+                <div className="flex items-center gap-3 py-8">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                  <span className="text-gray-300">의미론적 분석 중...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Similarity Metrics Cards */}
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="text-sm text-gray-400 mb-2">평균 유사도</h3>
+                      <p className={`text-2xl font-bold ${
+                        semanticGapResult.avg_similarity >= 0.7
+                          ? 'text-red-400'
+                          : semanticGapResult.avg_similarity >= 0.4
+                          ? 'text-yellow-400'
+                          : 'text-green-400'
+                      }`}>
+                        {(semanticGapResult.avg_similarity * 100).toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {semanticGapResult.avg_similarity >= 0.7
+                          ? '경쟁사와 유사'
+                          : semanticGapResult.avg_similarity >= 0.4
+                          ? '부분 차별화'
+                          : '차별화됨'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="text-sm text-gray-400 mb-2">내 광고 다양성</h3>
+                      <p className="text-2xl font-bold text-blue-400">
+                        {(semanticGapResult.my_diversity * 100).toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">높을수록 다양한 메시지</p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="text-sm text-gray-400 mb-2">경쟁사 다양성</h3>
+                      <p className="text-2xl font-bold text-purple-400">
+                        {(semanticGapResult.competitor_diversity * 100).toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">경쟁사 메시지 다양성</p>
+                    </div>
+                  </div>
+
+                  {/* Most Similar Competitor Copies */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">내 광고와 가장 유사한 경쟁사 카피</h3>
+                    <div className="space-y-2">
+                      {semanticGapResult.most_similar_competitors.map((item, idx) => (
+                        <div key={idx} className="bg-gray-800 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-blue-900 border border-blue-700 text-blue-300 px-2 py-0.5 rounded text-xs font-medium">
+                              {(item.similarity * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-300">{item.copy}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Gap Copies */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">경쟁사가 쓰고 있지만 내가 놓친 메시지</h3>
+                    <p className="text-xs text-gray-500 mb-3">유사도가 낮은 경쟁사 카피 → 차별화 기회 또는 진입 고려</p>
+                    <div className="space-y-2">
+                      {semanticGapResult.gap_copies.map((item, idx) => (
+                        <div key={idx} className="bg-gray-800 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-green-900 border border-green-700 text-green-300 px-2 py-0.5 rounded text-xs font-medium">
+                              {(item.similarity * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-300">{item.copy}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Insight */}
+                  <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                    <p className="text-gray-300">{semanticGapResult.insight}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 
