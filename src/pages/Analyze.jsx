@@ -844,15 +844,12 @@ function Analyze() {
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                               isBelow ? 'bg-red-600'
                               : isAbove ? 'bg-green-600'
-                              : 'bg-gray-500'
+                              : 'bg-gray-600'
                             }`}>
-                              {isBelow ? t('page.creative.score_poor') : isAbove ? t('page.creative.score_excellent') : t('common.industry_avg')}
+                              {isBelow ? '미달' : isAbove ? '초과' : '평균'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-300 mb-2">
-                            <span className="font-medium text-gray-100">원인 추정: </span>
-                            {item.cause_estimate}
-                          </p>
+                          <p className="text-sm text-gray-300 mb-2">{item.cause_estimate}</p>
                           <p className="text-xs text-gray-400">
                             <span className="font-medium">연쇄 효과: </span>
                             {item.cascade_effect}
@@ -937,33 +934,34 @@ function Analyze() {
 
                 {/* Save Buttons */}
                 {saveStatus === null && (
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => setSaveStatus(null)}
-                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                    >
-                      저장 안 함
-                    </button>
-                    <button
-                      onClick={handleSaveCampaign}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
-                    >
-                      이 분석 저장하기 →
-                    </button>
+                  <div className="mt-6">
+                    {aiDiagnosis ? (
+                      <button
+                        onClick={handleSaveCampaign}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        이 분석 저장하기
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSaveCampaign}
+                        className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                      >
+                        수치만 저장하기
+                      </button>
+                    )}
                   </div>
                 )}
 
                 {saveStatus === 'saving' && (
-                  <div className="flex gap-3 mt-6">
+                  <div className="mt-6">
                     <button
                       disabled
-                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl opacity-50"
-                    >
-                      저장 안 함
-                    </button>
-                    <button
-                      disabled
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold opacity-70 flex items-center gap-2"
+                      className={`${
+                        aiDiagnosis
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          : 'border border-gray-600 text-gray-400'
+                      } px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2`}
                     >
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       저장 중...
@@ -978,25 +976,65 @@ function Analyze() {
                 )}
 
                 {saveStatus === 'error' && (
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => setSaveStatus(null)}
-                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
-                    >
-                      저장 안 함
-                    </button>
+                  <div className="mt-6">
                     <button
                       onClick={handleSaveCampaign}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                      className={`${
+                        aiDiagnosis
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                          : 'border border-gray-600 text-gray-400'
+                      } px-6 py-2.5 rounded-xl hover:opacity-90 transition-opacity`}
                     >
                       다시 시도
                     </button>
-                    <div className="text-red-400 self-center">저장에 실패했습니다. 다시 시도해주세요.</div>
+                    <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
                   </div>
                 )}
               </>
             )}
           </div>
+
+          {/* Save Buttons (when analyzed but no AI diagnosis) */}
+          {analyzed && !aiDiagnosis && !aiLoading && !aiError && (
+            <div className="mt-6">
+              {saveStatus === null && (
+                <button
+                  onClick={handleSaveCampaign}
+                  className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                >
+                  수치만 저장하기
+                </button>
+              )}
+
+              {saveStatus === 'saving' && (
+                <button
+                  disabled
+                  className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl opacity-70 flex items-center gap-2"
+                >
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                  저장 중...
+                </button>
+              )}
+
+              {saveStatus === 'saved' && (
+                <div className="text-green-400">
+                  ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
+                </div>
+              )}
+
+              {saveStatus === 'error' && (
+                <div>
+                  <button
+                    onClick={handleSaveCampaign}
+                    className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                  >
+                    다시 시도
+                  </button>
+                  <div className="text-red-400 mt-2">저장에 실패했습니다. 다시 시도해주세요.</div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Budget Reallocation Simulator */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
