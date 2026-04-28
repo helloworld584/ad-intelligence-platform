@@ -291,6 +291,33 @@ class CampaignCreate(BaseModel):
     ai_diagnosis: dict | None = None
     notes: str | None = None
 
+# ── /analyze-anomaly 스키마 ──────────────────────────────────
+class AnomalyMetrics(BaseModel):
+    ctr: float | None = None
+    cpc: float | None = None
+    cvr: float | None = None
+    cpa: float | None = None
+    roas: float | None = None
+
+class AnomalyRequest(BaseModel):
+    industry: str
+    platform: str
+    metrics: AnomalyMetrics
+
+class ContributingMetric(BaseModel):
+    metric: str
+    z_score: float
+    direction: str  # "above" | "below"
+    interpretation: str
+
+class AnomalyResponse(BaseModel):
+    mahalanobis_distance: float
+    status: str
+    status_en: str
+    contributing_metrics: list[ContributingMetric]
+    pattern_insight: str
+    available_metrics: list[str]
+
 # ── /collect-news 스키마 ─────────────────────────────────────
 class CollectNewsResponse(BaseModel):
     collected: int
@@ -955,3 +982,144 @@ def delete_campaign(campaign_id: str, request: Request):
     except Exception as e:
         print(f"[ERROR] DELETE /campaigns/{campaign_id} 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── /analyze-anomaly 헬퍼 ────────────────────────────────────
+_LOWER_IS_BETTER = {"cpc", "cpa"}
+
+_METRIC_LABELS = {"ctr": "CTR", "cpc": "CPC", "cvr": "CVR", "cpa": "CPA", "roas": "ROAS"}
+
+_METRIC_INTERPRETATIONS: dict[tuple[str, str], str] = {
+    ("ctr", "above"): "CTR이 업종 평균 대비 높은 수준으로 광고 소재 효율이 우수함",
+    ("ctr", "below"): "CTR이 업종 평균 대비 통계적으로 낮은 수준",
+    ("cpc", "above"): "CPC가 업종 평균보다 낮아 클릭 비용 효율이 좋음",
+    ("cpc", "below"): "CPC가 업종 평균보다 높아 클릭당 비용 부담이 큼",
+    ("cvr", "above"): "CVR이 업종 평균 대비 높아 랜딩 페이지 효율이 우수함",
+    ("cvr", "below"): "CVR이 업종 평균 대비 낮아 전환 경로 점검이 필요함",
+    ("cpa", "above"): "CPA가 업종 평균보다 낮아 전환 비용이 효율적임",
+    ("cpa", "below"): "CPA가 업종 평균보다 높아 전환당 비용이 과다함",
+    ("roas", "above"): "ROAS가 업종 평균 대비 높아 광고 수익성이 우수함",
+    ("roas", "below"): "ROAS가 업종 평균 대비 낮아 광고 수익성 개선이 필요함",
+}
+
+def _get_pattern_insight(z_scores: dict[str, float]) -> str:
+    z_ctr  = z_scores.get("ctr")
+    z_cpc  = z_scores.get("cpc")
+    z_cvr  = z_scores.get("cvr")
+    z_roas = z_scores.get("roas")
+
+    if z_ctr is not None and z_cvr is not None:
+        if z_ctr < 0 and z_cvr < 0:
+            return "클릭과 전환 모두 저조 → 광고 소재와 랜딩 페이지 동시 점검 필요"
+        if z_ctr < 0 and z_cvr > 0:
+            return "클릭은 적지만 전환율 높음 → 타겟이 정교하나 도달 범위가 좁음"
+        if z_ctr > 0 and z_cvr < 0:
+            return "클릭은 많지만 전환 저조 → 랜딩 페이지 또는 오퍼 문제"
+
+    if z_cpc is not None and z_roas is not None and z_cpc < 0 and z_roas < 0:
+        return "비용 대비 수익 악화 → 입찰가 또는 예산 배분 재검토"
+
+    if z_scores and all(abs(z) <= 1.5 for z in z_scores.values()):
+        return "모든 지표가 업종 정상 범위 내"
+
+    if z_scores:
+        worst_m, worst_z = max(z_scores.items(), key=lambda kv: abs(kv[1]))
+        label = _METRIC_LABELS.get(worst_m, worst_m)
+        direction = "낮음" if worst_z < 0 else "높음"
+        return f"{label}이(가) 업종 평균 대비 크게 {direction} → 해당 지표 집중 점검 필요"
+
+    return "분석 가능한 지표 없음"
+
+# ── /analyze-anomaly 엔드포인트 ──────────────────────────────
+@app.post("/analyze-anomaly", response_model=AnomalyResponse)
+def analyze_anomaly(req: AnomalyRequest):
+    supabase = state.get("supabase")
+    if supabase is None:
+        raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
+
+    # 1. 벤치마크 조회
+    try:
+        res = (
+            supabase.schema("adplatform")
+            .table("benchmarks")
+            .select("metric_name, metric_value, percentile_25, percentile_75")
+            .eq("industry", req.industry)
+            .eq("platform", req.platform)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"벤치마크 조회 실패: {str(e)}")
+
+    if not res.data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"'{req.industry}' / '{req.platform}' 벤치마크 데이터가 없습니다.",
+        )
+
+    # 2. 정상 범위 추정 (μ, σ)
+    user_vals = req.metrics.model_dump()
+    mu: dict[str, float] = {}
+    sigma: dict[str, float] = {}
+
+    for row in res.data:
+        name = (row.get("metric_name") or "").lower()
+        if name not in user_vals or user_vals[name] is None:
+            continue
+        avg = row.get("metric_value")
+        p25 = row.get("percentile_25")
+        p75 = row.get("percentile_75")
+        if avg is None or p25 is None or p75 is None:
+            continue
+        std = (float(p75) - float(p25)) / 1.35
+        if std <= 0:
+            continue
+        mu[name] = float(avg)
+        sigma[name] = std
+
+    available = sorted(mu.keys())
+    if not available:
+        raise HTTPException(status_code=422, detail="유효한 벤치마크 지표가 부족합니다.")
+
+    # 3. Mahalanobis Distance (대각 공분산)
+    x_vec     = np.array([user_vals[m] for m in available], dtype=float)
+    mu_vec    = np.array([mu[m]        for m in available], dtype=float)
+    sigma_vec = np.array([sigma[m]     for m in available], dtype=float)
+
+    mahal_dist = float(np.sqrt(np.sum(((x_vec - mu_vec) / sigma_vec) ** 2)))
+
+    # 4. Z-score (CPC·CPA 부호 반전)
+    z_scores: dict[str, float] = {}
+    for m in available:
+        raw_z = (user_vals[m] - mu[m]) / sigma[m]
+        z_scores[m] = round(-raw_z if m in _LOWER_IS_BETTER else raw_z, 4)
+
+    # 5. 이상 여부 판별
+    if mahal_dist < 2.0:
+        status, status_en = "정상", "normal"
+    elif mahal_dist < 3.0:
+        status, status_en = "주의", "warning"
+    else:
+        status, status_en = "이상", "anomaly"
+
+    # 6. 이상 기여 지표 식별 (|z| > 1.5)
+    contributing: list[ContributingMetric] = []
+    for m in available:
+        z = z_scores[m]
+        if abs(z) > 1.5:
+            direction = "above" if z > 0 else "below"
+            contributing.append(ContributingMetric(
+                metric=m,
+                z_score=z,
+                direction=direction,
+                interpretation=_METRIC_INTERPRETATIONS.get(
+                    (m, direction), f"{_METRIC_LABELS.get(m, m)} 이상 감지"
+                ),
+            ))
+
+    return AnomalyResponse(
+        mahalanobis_distance=round(mahal_dist, 4),
+        status=status,
+        status_en=status_en,
+        contributing_metrics=contributing,
+        pattern_insight=_get_pattern_insight(z_scores),
+        available_metrics=available,
+    )
