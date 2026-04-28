@@ -807,8 +807,8 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
     if not cron_secret or x_cron_secret != cron_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    supabase = state.get("supabase")
-    if supabase is None:
+    supabase_admin = state.get("supabase_admin")
+    if supabase_admin is None:
         raise HTTPException(status_code=503, detail="Supabase가 연결되지 않았습니다.")
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=90)
@@ -858,7 +858,7 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
     # 기존 URL 조회 → 신규만 삽입
     url_list = [r["url"] for r in all_rows]
     existing_res = (
-        supabase.schema("adplatform")
+        supabase_admin.schema("adplatform")
         .table("industry_news")
         .select("url")
         .in_("url", url_list)
@@ -870,22 +870,23 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
     skipped = len(all_rows) - len(new_rows)
 
     # 신규 뉴스 최대 10건에 한해 Claude API로 impact_comment 생성 (나머지는 템플릿 유지)
-    for row in new_rows[:10]:
+    for i, row in enumerate(new_rows[:10]):
         try:
+            print(f"[INFO] 신규 뉴스 {i+1}번째 impact 생성: {row['title'][:30]}")
             row["impact_comment"] = _generate_impact_comment(
                 row["title"], row["summary"], row["tags"]
             )
         except Exception as e:
-            print(f"[WARN] collect-news impact_comment 생성 실패: {e}")
+            print(f"[WARN] 신규 뉴스 impact_comment 생성 실패: {e}")
 
     if new_rows:
-        supabase.schema("adplatform").table("industry_news").insert(new_rows).execute()
+        supabase_admin.schema("adplatform").table("industry_news").insert(new_rows).execute()
 
     # 기존 뉴스 중 impact_comment가 null이거나 기존 템플릿인 행 최대 10건 업데이트
     updated_existing = 0
     try:
         null_res = (
-            supabase.schema("adplatform")
+            supabase_admin.schema("adplatform")
             .table("industry_news")
             .select("id, title, summary, tags")
             .is_("impact_comment", "null")
@@ -894,11 +895,12 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
             .execute()
         )
         stale_rows = list(null_res.data or [])
+        print(f"[INFO] impact_comment null 뉴스 {len(stale_rows)}건 발견")
 
         remaining = 10 - len(stale_rows)
         if remaining > 0:
             tmpl_res = (
-                supabase.schema("adplatform")
+                supabase_admin.schema("adplatform")
                 .table("industry_news")
                 .select("id, title, summary, tags")
                 .like("impact_comment", "%관련 동향 모니터링%")
@@ -906,17 +908,20 @@ def collect_news(x_cron_secret: str | None = Header(default=None)):
                 .limit(remaining)
                 .execute()
             )
-            stale_rows += list(tmpl_res.data or [])
+            tmpl_rows = list(tmpl_res.data or [])
+            print(f"[INFO] impact_comment 템플릿 뉴스 {len(tmpl_rows)}건 발견")
+            stale_rows += tmpl_rows
 
-        for row in stale_rows:
+        for i, row in enumerate(stale_rows):
             try:
+                print(f"[INFO] {i+1}번째 뉴스 impact 생성: {row['title'][:30]}")
                 comment = _generate_impact_comment(
                     row["title"],
                     row.get("summary") or "",
                     row.get("tags") or [],
                 )
                 (
-                    supabase.schema("adplatform")
+                    supabase_admin.schema("adplatform")
                     .table("industry_news")
                     .update({"impact_comment": comment})
                     .eq("id", row["id"])
