@@ -11,7 +11,8 @@
       "Bash(git push *)",
       "Bash(npm list *)",
       "Bash(npm run *)",
-      "Skill(claude-api)"
+      "Skill(claude-api)",
+      "Bash(python *)"
     ]
   }
 }

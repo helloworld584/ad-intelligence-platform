@@ -58,6 +58,8 @@ function Analyze() {
   const [aiDiagnosis, setAiDiagnosis] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(null)
+  const [anomalyResult, setAnomalyResult] = useState(null)
+  const [anomalyLoading, setAnomalyLoading] = useState(false)
   const [saveStatus, setSaveStatus] = useState(null) // 'saving', 'saved', 'error', null
 
   const handleInputChange = (e) => {
@@ -225,6 +227,8 @@ function Analyze() {
     setAiDiagnosis(null)
     setAiError(null)
     setAiLoading(true)
+    setAnomalyResult(null)
+    setAnomalyLoading(true)
 
     const fetchedBenchmarks = await fetchBenchmarks()
     await fetchConfig()
@@ -249,55 +253,85 @@ function Analyze() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/diagnose`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          campaign: {
+      // Parallel calls to /diagnose and /analyze-anomaly
+      const [diagnoseResponse, anomalyResponse] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_URL}/diagnose`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            campaign: {
+              industry: formData.industry,
+              platform: dbPlatform,
+              budget: parseFloat(formData.budget),
+              impressions: parseInt(formData.impressions),
+              clicks: parseInt(formData.clicks),
+              conversions: parseInt(formData.conversions),
+              revenue: parseFloat(formData.revenue)
+            },
+            metrics: {
+              ctr: calculatedMetrics.ctr,
+              cpc: calculatedMetrics.cpc,
+              cvr: calculatedMetrics.cvr,
+              cpa: calculatedMetrics.cpa,
+              roas: calculatedMetrics.roas
+            },
+            benchmarks: {
+              ctr:  buildBenchmarkMetric('CTR'),
+              cpc:  buildBenchmarkMetric('CPC'),
+              cvr:  buildBenchmarkMetric('CVR'),
+              cpa:  buildBenchmarkMetric('CPA'),
+              roas: buildBenchmarkMetric('ROAS')
+            },
+            language: lang
+          })
+        }),
+        fetch(`${import.meta.env.VITE_API_URL}/analyze-anomaly`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             industry: formData.industry,
             platform: dbPlatform,
-            budget: parseFloat(formData.budget),
-            impressions: parseInt(formData.impressions),
-            clicks: parseInt(formData.clicks),
-            conversions: parseInt(formData.conversions),
-            revenue: parseFloat(formData.revenue)
-          },
-          metrics: {
-            ctr: calculatedMetrics.ctr,
-            cpc: calculatedMetrics.cpc,
-            cvr: calculatedMetrics.cvr,
-            cpa: calculatedMetrics.cpa,
-            roas: calculatedMetrics.roas
-          },
-          benchmarks: {
-            ctr:  buildBenchmarkMetric('CTR'),
-            cpc:  buildBenchmarkMetric('CPC'),
-            cvr:  buildBenchmarkMetric('CVR'),
-            cpa:  buildBenchmarkMetric('CPA'),
-            roas: buildBenchmarkMetric('ROAS')
-          },
-          language: lang
+            metrics: {
+              ctr: calculatedMetrics.ctr,
+              cpc: calculatedMetrics.cpc,
+              cvr: calculatedMetrics.cvr,
+              cpa: calculatedMetrics.cpa,
+              roas: calculatedMetrics.roas
+            }
+          })
         })
-      })
+      ])
       
-      if (response.status === 401) {
+      if (diagnoseResponse.status === 401) {
         throw new Error(t('nav.login'))
       }
-      if (response.status === 429) {
+      if (diagnoseResponse.status === 429) {
         throw new Error(t('common.daily_limit'))
       }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!diagnoseResponse.ok) throw new Error(`HTTP ${diagnoseResponse.status}`)
       
-      const data = await response.json()
-      setAiDiagnosis(data)
+      const diagnoseData = await diagnoseResponse.json()
+      setAiDiagnosis(diagnoseData)
+
+      // Handle anomaly response (silent failure)
+      if (anomalyResponse.ok) {
+        const anomalyData = await anomalyResponse.json()
+        setAnomalyResult(anomalyData)
+      } else {
+        setAnomalyResult(null)
+      }
+      
     } catch (err) {
-      console.error('Diagnose error:', err)
-      setAiError(err.message || t('page.analyze.error'))
+      console.error('Analysis error:', err)
+      setAiError(err.message)
     } finally {
       setAiLoading(false)
+      setAnomalyLoading(false)
     }
   }
 
@@ -362,7 +396,10 @@ function Analyze() {
           cvr: calculatedMetrics.cvr / 100, // Convert % to decimal for storage
           cpa: calculatedMetrics.cpa,
           roas: calculatedMetrics.roas,
-          ai_diagnosis: aiDiagnosis
+          ai_diagnosis: {
+            ...aiDiagnosis,
+            anomaly: anomalyResult
+          }
         })
       })
 
@@ -818,6 +855,74 @@ function Analyze() {
             {/* 에러 */}
             {aiError && (
               <ErrorState message={aiError} onRetry={analyze} />
+            )}
+
+            {/* 캠페인 종합 진단 (이상 탐지) */}
+            {anomalyLoading && (
+              <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                  <span className="text-gray-300">다변량 분석 중...</span>
+                </div>
+              </div>
+            )}
+
+            {anomalyResult && (
+              <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                <h2 className="text-xl font-bold mb-1">캠페인 종합 진단</h2>
+                <p className="text-sm text-gray-400 mb-4">업종 벤치마크 분포 기반 다변량 분석</p>
+
+                {/* 종합 상태 배지 */}
+                <div className="mb-4">
+                  {anomalyResult.status === '정상' && (
+                    <div className="inline-block bg-green-900 border border-green-700 text-green-300 px-6 py-3 rounded-lg text-lg font-semibold mb-3">
+                      ✓ 정상 범위
+                    </div>
+                  )}
+                  {anomalyResult.status === '주의' && (
+                    <div className="inline-block bg-yellow-900 border border-yellow-700 text-yellow-300 px-6 py-3 rounded-lg text-lg font-semibold mb-3">
+                      ⚠ 주의 필요
+                    </div>
+                  )}
+                  {anomalyResult.status === '이상' && (
+                    <div className="inline-block bg-red-900 border border-red-700 text-red-300 px-6 py-3 rounded-lg text-lg font-semibold mb-3">
+                      ✗ 이상 감지
+                    </div>
+                  )}
+                  <div className="mt-2">
+                    <span className="text-gray-300">종합 이탈도: {anomalyResult.mahalanobis_distance.toFixed(2)}</span>
+                    <p className="text-xs text-gray-500 mt-1">값이 클수록 업종 정상 패턴에서 벗어남</p>
+                  </div>
+                </div>
+
+                {/* 이상 기여 지표 */}
+                {anomalyResult.contributing_metrics && anomalyResult.contributing_metrics.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {anomalyResult.contributing_metrics.map((cm, idx) => (
+                        <div key={idx} className="flex flex-col">
+                          <span className={`px-3 py-1 rounded text-sm font-medium ${
+                            cm.direction === 'below'
+                              ? 'bg-red-900 border border-red-700 text-red-300'
+                              : 'bg-green-900 border border-green-700 text-green-300'
+                          }`}>
+                            {cm.direction === 'below' ? '↓' : '↑'} {cm.metric.toUpperCase()} {cm.direction === 'below' ? '저조' : '우수'}
+                          </span>
+                          <p className="text-xs text-gray-400 mt-1">{cm.interpretation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 패턴 인사이트 */}
+                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                  <p className="text-gray-300">
+                    <span className="mr-2">💡</span>
+                    {anomalyResult.pattern_insight}
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* 결과 5개 블록 */}
