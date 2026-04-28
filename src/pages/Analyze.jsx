@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { useSession } from '../contexts/AuthContext'
 import { useTranslation } from '../hooks/useTranslation'
@@ -58,6 +58,7 @@ function Analyze() {
   const [aiDiagnosis, setAiDiagnosis] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(null)
+  const [saveStatus, setSaveStatus] = useState(null) // 'saving', 'saved', 'error', null
 
   const handleInputChange = (e) => {
     setFormData({
@@ -292,39 +293,6 @@ function Analyze() {
       
       const data = await response.json()
       setAiDiagnosis(data)
-
-      // Save campaign to database
-      try {
-        const saveResponse = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            campaign_name: formData.campaignName,
-            industry: formData.industry,
-            platform: dbPlatform,
-            budget: parseFloat(formData.budget),
-            impressions: parseInt(formData.impressions),
-            clicks: parseInt(formData.clicks),
-            conversions: parseInt(formData.conversions),
-            revenue: parseFloat(formData.revenue),
-            ctr: calculatedMetrics.ctr,
-            cpc: calculatedMetrics.cpc,
-            cvr: calculatedMetrics.cvr,
-            cpa: calculatedMetrics.cpa,
-            roas: calculatedMetrics.roas,
-            ai_diagnosis: data
-          })
-        })
-
-        if (saveResponse.ok) {
-          alert(t('page.dashboard.campaign_saved'))
-        }
-      } catch (saveErr) {
-        console.error('Failed to save campaign:', saveErr)
-      }
     } catch (err) {
       console.error('Diagnose error:', err)
       setAiError(err.message || t('page.analyze.error'))
@@ -344,9 +312,9 @@ function Analyze() {
     const p25 = metricPercentiles.p25
     const p75 = metricPercentiles.p75
     
-    const lowerIsBetter = ['cpc', 'cpa'].includes(metricName.toLowerCase())
-    
-    if (lowerIsBetter) {
+    const isLowerBetter = ['cpc', 'cpa'].includes(metricName.toLowerCase())
+
+    if (isLowerBetter) {
       if (userMetric <= p25) {
         return { status: 'good', message: `✓ ${t('common.status_good')}` }
       } else if (userMetric >= p75) {
@@ -362,6 +330,52 @@ function Analyze() {
       } else {
         return { status: 'neutral', message: `→ ${t('common.industry_avg')}` }
       }
+    }
+  }
+
+  const handleSaveCampaign = async () => {
+    try {
+      setSaveStatus('saving')
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      const calculatedMetrics = calculateMetrics()
+      const dbPlatform = toDbPlatform(formData.platform)
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          campaign_name: formData.campaignName || null,
+          industry: formData.industry,
+          platform: dbPlatform,
+          budget: parseFloat(formData.budget),
+          impressions: parseInt(formData.impressions),
+          clicks: parseInt(formData.clicks),
+          conversions: parseInt(formData.conversions),
+          revenue: parseFloat(formData.revenue),
+          ctr: calculatedMetrics.ctr,
+          cpc: calculatedMetrics.cpc,
+          cvr: calculatedMetrics.cvr,
+          cpa: calculatedMetrics.cpa,
+          roas: calculatedMetrics.roas,
+          ai_diagnosis: aiDiagnosis
+        })
+      })
+
+      if (response.status === 401) {
+        throw new Error(t('nav.login'))
+      }
+
+      if (!response.ok) throw new Error('Failed to save campaign')
+
+      setSaveStatus('saved')
+    } catch (err) {
+      console.error('Failed to save campaign:', err)
+      setSaveStatus('error')
     }
   }
 
@@ -920,6 +934,66 @@ function Analyze() {
                     )
                   })()}
                 </div>
+
+                {/* Save Buttons */}
+                {saveStatus === null && (
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setSaveStatus(null)}
+                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                    >
+                      저장 안 함
+                    </button>
+                    <button
+                      onClick={handleSaveCampaign}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      이 분석 저장하기 →
+                    </button>
+                  </div>
+                )}
+
+                {saveStatus === 'saving' && (
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      disabled
+                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl opacity-50"
+                    >
+                      저장 안 함
+                    </button>
+                    <button
+                      disabled
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold opacity-70 flex items-center gap-2"
+                    >
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      저장 중...
+                    </button>
+                  </div>
+                )}
+
+                {saveStatus === 'saved' && (
+                  <div className="mt-6 text-green-400">
+                    ✓ 저장되었습니다. <Link to="/dashboard" className="underline hover:text-green-300">대시보드에서 확인하세요</Link>
+                  </div>
+                )}
+
+                {saveStatus === 'error' && (
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setSaveStatus(null)}
+                      className="border border-gray-600 text-gray-400 px-6 py-2.5 rounded-xl hover:border-gray-400 transition-colors"
+                    >
+                      저장 안 함
+                    </button>
+                    <button
+                      onClick={handleSaveCampaign}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                    >
+                      다시 시도
+                    </button>
+                    <div className="text-red-400 self-center">저장에 실패했습니다. 다시 시도해주세요.</div>
+                  </div>
+                )}
               </>
             )}
           </div>
