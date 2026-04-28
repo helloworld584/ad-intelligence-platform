@@ -158,11 +158,11 @@ async def lifespan(app: FastAPI):
         state["supabase_admin"] = state["supabase"]
 
     try:
-        from sentence_transformers import SentenceTransformer
-        state["semantic_model"] = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
-        print("semantic_model 로드 완료")
+        from fastembed import TextEmbedding
+        state["semantic_model"] = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        print("Semantic embedding 모델 로드 완료")
     except Exception as e:
-        print(f"[WARN] sentence-transformers 로드 실패: {e}")
+        print(f"[WARN] fastembed 로드 실패: {e}")
         state["semantic_model"] = None
 
     print(f"ANTHROPIC_API_KEY 설정 여부: {'설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '없음'}")
@@ -1155,14 +1155,14 @@ def analyze_anomaly(req: AnomalyRequest):
 def analyze_semantic_gap(req: SemanticGapRequest):
     model = state.get("semantic_model")
     if model is None:
-        raise HTTPException(status_code=503, detail="Semantic 모델이 로드되지 않았습니다.")
+        raise HTTPException(status_code=503, detail="임베딩 모델을 사용할 수 없습니다.")
     if not req.my_copies:
         raise HTTPException(status_code=422, detail="my_copies는 비어 있을 수 없습니다.")
     if not req.competitor_copies:
         raise HTTPException(status_code=422, detail="competitor_copies는 비어 있을 수 없습니다.")
 
-    my_emb   = model.encode(req.my_copies)
-    comp_emb = model.encode(req.competitor_copies)
+    my_emb   = np.array(list(model.embed(req.my_copies)))
+    comp_emb = np.array(list(model.embed(req.competitor_copies)))
 
     # A. 내 광고 vs 경쟁사 평균 유사도
     sim_matrix   = cosine_similarity(my_emb, comp_emb)
