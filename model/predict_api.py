@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -156,14 +157,6 @@ async def lifespan(app: FastAPI):
         state["supabase_admin"] = create_client(supabase_url, SUPABASE_SERVICE_KEY)
     else:
         state["supabase_admin"] = state["supabase"]
-
-    try:
-        from sentence_transformers import SentenceTransformer
-        state["semantic_model"] = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-        print("Semantic embedding 모델 로드 완료")
-    except Exception as e:
-        print(f"[WARN] sentence-transformers 로드 실패: {e}")
-        state["semantic_model"] = None
 
     print(f"ANTHROPIC_API_KEY 설정 여부: {'설정됨' if os.environ.get('ANTHROPIC_API_KEY') else '없음'}")
     print(f"SUPABASE_SERVICE_KEY 설정 여부: {'설정됨' if SUPABASE_SERVICE_KEY else '없음'}")
@@ -1153,58 +1146,70 @@ def analyze_anomaly(req: AnomalyRequest):
 # ── /analyze-semantic-gap 엔드포인트 ─────────────────────────
 @app.post("/analyze-semantic-gap", response_model=SemanticGapResponse)
 def analyze_semantic_gap(req: SemanticGapRequest):
-    model = state.get("semantic_model")
-    if model is None:
-        raise HTTPException(status_code=503, detail="임베딩 모델을 사용할 수 없습니다.")
     if not req.my_copies:
         raise HTTPException(status_code=422, detail="my_copies는 비어 있을 수 없습니다.")
     if not req.competitor_copies:
         raise HTTPException(status_code=422, detail="competitor_copies는 비어 있을 수 없습니다.")
 
-    my_emb   = model.encode(req.my_copies, convert_to_numpy=True)
-    comp_emb = model.encode(req.competitor_copies, convert_to_numpy=True)
+    # TF-IDF 행렬 생성 (char n-gram 기반, 한/영 모두 대응)
+    all_copies = req.my_copies + req.competitor_copies
+    vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), max_features=5000)
+    tfidf_matrix = vectorizer.fit_transform(all_copies)
+
+    n = len(req.my_copies)
+    my_mat   = tfidf_matrix[:n]
+    comp_mat = tfidf_matrix[n:]
 
     # A. 내 광고 vs 경쟁사 평균 유사도
-    sim_matrix   = cosine_similarity(my_emb, comp_emb)
-    avg_similarity = round(float(sim_matrix.mean()), 4)
+    sim          = cosine_similarity(my_mat, comp_mat)
+    avg_sim      = float(sim.mean())
 
-    # B. 내 광고 다양성
-    my_sim      = cosine_similarity(my_emb, my_emb)
-    my_diversity = round(1 - float(my_sim.mean()), 4)
+    # B. 내 광고 다양성 (카피가 1개면 다양성 1.0)
+    if n > 1:
+        ms = cosine_similarity(my_mat, my_mat)
+        np.fill_diagonal(ms, 0)
+        my_div = float(1 - ms.mean())
+    else:
+        my_div = 1.0
 
     # C. 경쟁사 다양성
-    comp_sim         = cosine_similarity(comp_emb, comp_emb)
-    comp_diversity   = round(1 - float(comp_sim.mean()), 4)
+    nc = len(req.competitor_copies)
+    if nc > 1:
+        cs = cosine_similarity(comp_mat, comp_mat)
+        np.fill_diagonal(cs, 0)
+        comp_div = float(1 - cs.mean())
+    else:
+        comp_div = 1.0
 
-    # D & E. 경쟁사 카피별 내 광고와의 평균 유사도로 top/bottom 추출
-    comp_scores = sim_matrix.mean(axis=0)
-    desc_idx = np.argsort(comp_scores)[::-1]
-    asc_idx  = np.argsort(comp_scores)
+    # D & E. 경쟁사 카피별 평균 유사도로 top/bottom 추출
+    avg_per_comp = sim.mean(axis=0)
+    top3_idx     = avg_per_comp.argsort()[-3:][::-1]
+    gap3_idx     = avg_per_comp.argsort()[:3]
 
     most_similar = [
-        SimilarCopy(copy=req.competitor_copies[i], similarity=round(float(comp_scores[i]), 4))
-        for i in desc_idx[:3]
+        SimilarCopy(copy=req.competitor_copies[i], similarity=round(float(avg_per_comp[i]), 4))
+        for i in top3_idx
     ]
     gap_copies = [
-        GapCopy(copy=req.competitor_copies[i], similarity=round(float(comp_scores[i]), 4))
-        for i in asc_idx[:3]
+        GapCopy(copy=req.competitor_copies[i], similarity=round(float(avg_per_comp[i]), 4))
+        for i in gap3_idx
     ]
 
-    # 인사이트
-    if avg_similarity >= 0.8:
+    # 인사이트 (TF-IDF 기준 임계값 조정)
+    if avg_sim >= 0.7:
         insight = "내 광고가 경쟁사와 매우 유사 → 차별화 전략 필요"
-    elif avg_similarity >= 0.6:
+    elif avg_sim >= 0.4:
         insight = "경쟁사와 유사한 메시지 → 일부 차별화 요소 추가 권장"
     else:
         insight = "경쟁사와 차별화된 메시지 → 독자적 포지셔닝 유지"
 
-    if my_diversity < 0.3:
-        insight += " + 내 광고들이 매우 유사 → 다양한 소재 테스트 권장"
+    if my_div < 0.3:
+        insight += ". 내 광고들이 매우 유사 → 다양한 소재 테스트 권장"
 
     return SemanticGapResponse(
-        avg_similarity=avg_similarity,
-        my_diversity=my_diversity,
-        competitor_diversity=comp_diversity,
+        avg_similarity=round(avg_sim, 4),
+        my_diversity=round(my_div, 4),
+        competitor_diversity=round(comp_div, 4),
         most_similar_competitors=most_similar,
         gap_copies=gap_copies,
         insight=insight,
