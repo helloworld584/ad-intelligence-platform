@@ -153,7 +153,7 @@ function Competitor() {
 
       {/* Input Section */}
       <div className="bg-gray-800 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">{t('page.competitor.ad_text')}</h2>
+        <h2 className="text-xl font-bold mb-4">광고 텍스트 (빈 줄로 구분)</h2>
         
         {/* Brand Name */}
         <div className="mb-6">
@@ -207,27 +207,27 @@ function Competitor() {
           {inputMode === 'bulk' ? (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                {t('page.competitor.ad_text')}
+                광고 텍스트 (빈 줄로 구분)
               </label>
               <textarea
                 value={bulkText}
                 onChange={handleBulkTextChange}
                 rows={10}
-                placeholder={t('page.competitor.placeholder')}
+                placeholder="광고 텍스트를 입력하세요 (빈 줄로 구분)"
                 className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
               />
             </div>
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                {t('page.competitor.ad_text')}
+                광고 텍스트 (빈 줄로 구분)
               </label>
               <div className="flex gap-2 mb-4">
                 <input
                   type="text"
                   value={singleText}
                   onChange={(e) => setSingleText(e.target.value)}
-                  placeholder={t('page.competitor.ad_text')}
+                  placeholder="광고 텍스트를 입력하세요"
                   className="flex-1 bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
                   onKeyPress={(e) => e.key === 'Enter' && handleAddSingleText()}
                 />
