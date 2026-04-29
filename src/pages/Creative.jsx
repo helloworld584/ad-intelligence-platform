@@ -244,7 +244,7 @@ function Creative() {
 
         <button
           onClick={analyze}
-          disabled={loading}
+          disabled={loading || (!formData.image && !formData.adText.trim())}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold px-6 py-2 rounded"
         >
           {loading ? t('page.creative.loading') : t('page.creative.submit')}
@@ -252,49 +252,85 @@ function Creative() {
       </div>
 
       {/* Analysis Results */}
-      {analyzed && result && (
+      {analyzed && (
         <>
-          {/* Overall Score Gauge */}
-          <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">{t('page.creative.score')}</h2>
-            <div className="flex items-center gap-8">
-              <div className="flex-1">
-                <div className="h-8 bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${getScoreColor(result.overall_score)} transition-all`}
-                    style={{ width: `${result.overall_score}%` }}
-                  />
+          {/* Copy Quality Score - only show if ad copy was provided */}
+          {formData.adText.trim() ? (
+            result && (
+              <>
+                {/* Overall Score Gauge */}
+                <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                  <h2 className="text-xl font-bold mb-4">{t('page.creative.score')}</h2>
+                  <div className="flex items-center gap-8">
+                    <div className="flex-1">
+                      <div className="h-8 bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${getScoreColor(result.overall_score)} transition-all`}
+                          style={{ width: `${result.overall_score}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-2 text-sm text-gray-400">
+                        <span>0</span>
+                        <span>50</span>
+                        <span>100</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-4xl font-bold">{result.overall_score}</p>
+                      <p className={`text-sm ${result.overall_score >= 80 ? 'text-green-400' : result.overall_score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {result.overall_score >= 80 ? t('page.creative.score_excellent') : result.overall_score >= 60 ? t('page.creative.score_good') : t('page.creative.score_poor')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between mt-2 text-sm text-gray-400">
-                  <span>0</span>
-                  <span>50</span>
-                  <span>100</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-4xl font-bold">{result.overall_score}</p>
-                <p className={`text-sm ${result.overall_score >= 80 ? 'text-green-400' : result.overall_score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {result.overall_score >= 80 ? t('page.creative.score_excellent') : result.overall_score >= 60 ? t('page.creative.score_good') : t('page.creative.score_poor')}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* Item Scores */}
-          <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">{t('page.creative.item_scores')}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              {result.item_scores.map((item, index) => (
-                <div key={index} className="bg-gray-700 rounded-lg p-4">
-                  <h3 className="font-semibold mb-2">{item.name}</h3>
-                  <p className={`text-2xl font-bold mb-1 ${getScoreColor(item.score).replace('bg-', 'text-')}`}>
-                    {item.score}
-                  </p>
-                  <p className="text-sm text-gray-400">{item.description}</p>
+                {/* Item Scores */}
+                <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                  <h2 className="text-xl font-bold mb-4">{t('page.creative.item_scores')}</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    {result.item_scores.map((item, index) => (
+                      <div key={index} className="bg-gray-700 rounded-lg p-4">
+                        <h3 className="font-semibold mb-2">{item.name}</h3>
+                        <p className={`text-2xl font-bold mb-1 ${getScoreColor(item.score).replace('bg-', 'text-')}`}>
+                          {item.score}
+                        </p>
+                        <p className="text-sm text-gray-400">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+
+                {/* Strengths */}
+                <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                  <h2 className="text-xl font-bold mb-4">{t('page.creative.strengths')}</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {result.strengths.map((strength, index) => (
+                      <div key={index} className="bg-green-900 border border-green-700 rounded-lg p-4">
+                        <p className="text-green-100">{strength}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Improvements */}
+                <div className="bg-gray-800 rounded-lg p-6 mb-8">
+                  <h2 className="text-xl font-bold mb-4">{t('page.creative.suggestions')}</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {result.improvements.map((improvement, index) => (
+                      <div key={index} className="bg-yellow-900 border border-yellow-700 rounded-lg p-4">
+                        <p className="text-yellow-100">{improvement}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )
+          ) : (
+            <div className="bg-gray-800 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-bold mb-4">{t('page.creative.score')}</h2>
+              <p className="text-gray-400">Copy Quality Score를 보려면 광고 카피를 입력하세요.</p>
             </div>
-          </div>
+          )}
 
           {/* Image Analysis */}
           {formData.image && (
