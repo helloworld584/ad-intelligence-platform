@@ -4,6 +4,7 @@ import ErrorState from '../components/ErrorState'
 import { useTranslation } from '../hooks/useTranslation'
 
 const PLATFORMS = ['Meta', 'Google Search', 'Google Display']
+const INDUSTRIES = ['E-commerce', 'Education', 'SaaS/Tech', 'Finance/Insurance', 'Healthcare', 'Travel/Hospitality', 'Real Estate', 'Retail', 'B2B', 'Media/Entertainment']
 const platformMap = {
   'Meta': 'meta',
   'Google Search': 'google_search',
@@ -201,14 +202,17 @@ function Creative() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.creative.industry')}</label>
-            <input
-              type="text"
+            <select
               name="industry"
               value={formData.industry}
               onChange={handleChange}
               className="w-full bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-              placeholder={t('page.creative.industry_example')}
-            />
+            >
+              <option value="">{t('page.creative.industry')}</option>
+              {INDUSTRIES.map(industry => (
+                <option key={industry} value={industry}>{industry}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">{t('page.creative.platform')}</label>
