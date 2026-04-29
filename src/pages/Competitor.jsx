@@ -522,8 +522,8 @@ function Competitor() {
                   {/* Positioning Map */}
                   {semanticGapResult.positioning_map && semanticGapResult.positioning_map.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold mb-3 text-gray-200">광고 포지셔닝 맵</h3>
-                      <ResponsiveContainer width="100%" height={300}>
+                      <h3 className="text-lg font-semibold mb-3 text-gray-200">Ad Positioning Map</h3>
+                      <ResponsiveContainer width="100%" height={350}>
                         <ScatterChart>
                           <XAxis hide />
                           <YAxis hide />
@@ -532,7 +532,10 @@ function Competitor() {
                             itemStyle={{ color: '#E5E7EB' }}
                             cursor={{ strokeDasharray: '3 3' }}
                             formatter={(value, name, props) => {
-                              if (name === 'text') return [props.payload.text, '']
+                              if (name === 'text') {
+                                const text = props.payload.text || ''
+                                return [text.length > 50 ? text.substring(0, 50) + '...' : text, '']
+                              }
                               return [value, name]
                             }}
                           />
@@ -540,16 +543,26 @@ function Competitor() {
                             data={semanticGapResult.positioning_map.filter(p => p.is_mine)}
                             fill="#3B82F6"
                             shape="circle"
-                            r={40}
+                            r={50}
                           />
                           <Scatter
                             data={semanticGapResult.positioning_map.filter(p => !p.is_mine)}
                             fill="#6B7280"
                             shape="circle"
-                            r={20}
+                            r={30}
                           />
                         </ScatterChart>
                       </ResponsiveContainer>
+                      <div className="flex justify-center gap-6 mt-4 text-sm text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                          <span>내 광고</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-gray-500"></span>
+                          <span>경쟁사 광고</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>
