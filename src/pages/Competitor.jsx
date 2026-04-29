@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../utils/supabase'
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter } from 'recharts'
 import ErrorState from '../components/ErrorState'
 import { useTranslation } from '../hooks/useTranslation'
 
@@ -515,9 +515,43 @@ function Competitor() {
                   </div>
 
                   {/* Insight */}
-                  <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                  <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                     <p className="text-gray-300">{semanticGapResult.insight}</p>
                   </div>
+
+                  {/* Positioning Map */}
+                  {semanticGapResult.positioning_map && semanticGapResult.positioning_map.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3 text-gray-200">광고 포지셔닝 맵</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <ScatterChart>
+                          <XAxis hide />
+                          <YAxis hide />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                            itemStyle={{ color: '#E5E7EB' }}
+                            cursor={{ strokeDasharray: '3 3' }}
+                            formatter={(value, name, props) => {
+                              if (name === 'text') return [props.payload.text, '']
+                              return [value, name]
+                            }}
+                          />
+                          <Scatter
+                            data={semanticGapResult.positioning_map.filter(p => p.is_mine)}
+                            fill="#3B82F6"
+                            shape="circle"
+                            r={40}
+                          />
+                          <Scatter
+                            data={semanticGapResult.positioning_map.filter(p => !p.is_mine)}
+                            fill="#6B7280"
+                            shape="circle"
+                            r={20}
+                          />
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -18,8 +18,11 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import google.generativeai as genai
+import umap
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
 
 # ── 모델 경로 ────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(__file__)
@@ -130,6 +133,10 @@ def _get_user_id(request: Request) -> str | None:
         return result.user.id if result and result.user else None
     except Exception:
         return None
+
+def _make_hash(data: dict) -> str:
+    serialized = json.dumps(data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(serialized.encode()).hexdigest()
 
 def _check_rate_limit(user_id: str) -> bool:
     """일일 한도 확인 후 카운터 증가. 한도 초과 시 False 반환."""
@@ -341,6 +348,7 @@ class SemanticGapResponse(BaseModel):
     most_similar_competitors: list[SimilarCopy]
     gap_copies: list[GapCopy]
     insight: str
+    positioning_map: list[dict] | None = None
 
 # ── /collect-news 스키마 ─────────────────────────────────────
 class CollectNewsResponse(BaseModel):
@@ -720,13 +728,26 @@ def analyze_competitor(req: CompetitorRequest, request: Request):
         )
         interpretation = resp.content[0].text.strip()
 
-        return CompetitorResponse(
+        result = CompetitorResponse(
             total_count=n,
             cta_distribution=dict(cta_dist),
             linguistic_features=ling,
             top_keywords=keywords,
             interpretation=interpretation,
         )
+        try:
+            supabase_admin = state.get("supabase_admin")
+            input_hash = _make_hash(req.model_dump())
+            row = {
+                "user_id": user_id,
+                "input_hash": input_hash,
+                "input_json": req.model_dump(),
+                "result_json": result.model_dump(),
+            }
+            supabase_admin.schema("adplatform").table("competitor_analyses").insert(row).execute()
+        except Exception:
+            pass
+        return result
 
     except HTTPException:
         raise
@@ -1043,6 +1064,18 @@ def analyze_creative(req: AnalyzeCreativeRequest, request: Request):
                     break
 
         result = AnalyzeCreativeResponse(**parsed)
+        try:
+            supabase_admin = state.get("supabase_admin")
+            input_hash = _make_hash(req.model_dump())
+            row = {
+                "user_id": user_id,
+                "input_hash": input_hash,
+                "input_json": req.model_dump(),
+                "result_json": result.model_dump(),
+            }
+            supabase_admin.schema("adplatform").table("creative_analyses").insert(row).execute()
+        except Exception:
+            pass
         return result
 
     except HTTPException:
@@ -1269,14 +1302,24 @@ def analyze_semantic_gap(req: SemanticGapRequest):
     if not req.competitor_copies:
         raise HTTPException(status_code=422, detail="competitor_copies는 비어 있을 수 없습니다.")
 
-    # TF-IDF 행렬 생성 (char n-gram 기반, 한/영 모두 대응)
     all_copies = req.my_copies + req.competitor_copies
-    vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), max_features=5000)
-    tfidf_matrix = vectorizer.fit_transform(all_copies)
-
     n = len(req.my_copies)
-    my_mat   = tfidf_matrix[:n]
-    comp_mat = tfidf_matrix[n:]
+
+    # Gemini text-embedding-004 (TF-IDF fallback)
+    try:
+        if not os.getenv("GEMINI_API_KEY"):
+            raise ValueError("GEMINI_API_KEY not set")
+        response = genai.embed_content(
+            model="models/text-embedding-004",
+            content=all_copies,
+        )
+        embeddings = np.array(response["embedding"])
+    except Exception:
+        vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), max_features=5000)
+        embeddings = vectorizer.fit_transform(all_copies).toarray()
+
+    my_mat   = embeddings[:n]
+    comp_mat = embeddings[n:]
 
     # A. 내 광고 vs 경쟁사 평균 유사도
     sim          = cosine_similarity(my_mat, comp_mat)
@@ -1313,7 +1356,7 @@ def analyze_semantic_gap(req: SemanticGapRequest):
         for i in gap3_idx
     ]
 
-    # 인사이트 (TF-IDF 기준 임계값 조정)
+    # 인사이트
     if avg_sim >= 0.7:
         insight = "내 광고가 경쟁사와 매우 유사 → 차별화 전략 필요"
     elif avg_sim >= 0.4:
@@ -1324,6 +1367,24 @@ def analyze_semantic_gap(req: SemanticGapRequest):
     if my_div < 0.3:
         insight += ". 내 광고들이 매우 유사 → 다양한 소재 테스트 권장"
 
+    # UMAP 포지셔닝 맵 (5건 이상일 때만)
+    positioning_map = None
+    if len(all_copies) >= 5:
+        try:
+            reducer = umap.UMAP(n_components=2, random_state=42)
+            coords_2d = reducer.fit_transform(embeddings)
+            positioning_map = [
+                {
+                    "text": copy_text,
+                    "x": float(coords_2d[i][0]),
+                    "y": float(coords_2d[i][1]),
+                    "is_mine": i < n,
+                }
+                for i, copy_text in enumerate(all_copies)
+            ]
+        except Exception:
+            positioning_map = None
+
     return SemanticGapResponse(
         avg_similarity=round(avg_sim, 4),
         my_diversity=round(my_div, 4),
@@ -1331,4 +1392,5 @@ def analyze_semantic_gap(req: SemanticGapRequest):
         most_similar_competitors=most_similar,
         gap_copies=gap_copies,
         insight=insight,
+        positioning_map=positioning_map,
     )
