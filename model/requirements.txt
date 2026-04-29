@@ -10,5 +10,5 @@ supabase
 anthropic
 feedparser
 slowapi
-google-generativeai
-umap-learn
+google-genai
+python-multipart

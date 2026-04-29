@@ -17,13 +17,14 @@ from fastapi import FastAPI, File, Form, HTTPException, Header, Request, UploadF
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
+from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import google.generativeai as genai
-import umap
+import google.genai as genai
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
+_gemini_key = os.getenv("GEMINI_API_KEY")
+_gemini_client = genai.Client(api_key=_gemini_key) if _gemini_key else None
 
 # ── 모델 경로 ────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(__file__)
@@ -1325,13 +1326,13 @@ def analyze_semantic_gap(req: SemanticGapRequest):
 
     # Gemini text-embedding-004 (TF-IDF fallback)
     try:
-        if not os.getenv("GEMINI_API_KEY"):
+        if _gemini_client is None:
             raise ValueError("GEMINI_API_KEY not set")
-        response = genai.embed_content(
-            model="models/text-embedding-004",
-            content=all_copies,
+        result = _gemini_client.models.embed_content(
+            model="text-embedding-004",
+            contents=all_copies,
         )
-        embeddings = np.array(response["embedding"])
+        embeddings = np.array([e.values for e in result.embeddings])
     except Exception:
         vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), max_features=5000)
         embeddings = vectorizer.fit_transform(all_copies).toarray()
@@ -1385,11 +1386,11 @@ def analyze_semantic_gap(req: SemanticGapRequest):
     if my_div < 0.3:
         insight += ". 내 광고들이 매우 유사 → 다양한 소재 테스트 권장"
 
-    # UMAP 포지셔닝 맵 (5건 이상일 때만)
+    # PCA 포지셔닝 맵 (5건 이상일 때만)
     positioning_map = None
     if len(all_copies) >= 5:
         try:
-            reducer = umap.UMAP(n_components=2, random_state=42)
+            reducer = PCA(n_components=2, random_state=42)
             coords_2d = reducer.fit_transform(embeddings)
             positioning_map = [
                 {
