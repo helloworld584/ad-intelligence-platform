@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -12,7 +13,7 @@ import pandas as pd
 import anthropic
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, File, Form, HTTPException, Header, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -349,6 +350,23 @@ class SemanticGapResponse(BaseModel):
     gap_copies: list[GapCopy]
     insight: str
     positioning_map: list[dict] | None = None
+
+# ── /analyze-image 스키마 ─────────────────────────────────────
+class ImageScoreItem(BaseModel):
+    score: int
+    comment: str
+
+class ImageVisualComplexity(BaseModel):
+    level: str
+    comment: str
+
+class ImageAnalysisResponse(BaseModel):
+    text_readability: ImageScoreItem
+    cta_visibility: ImageScoreItem
+    visual_complexity: ImageVisualComplexity
+    color_contrast: ImageScoreItem
+    overall_score: int
+    top_recommendations: list[str]
 
 # ── /collect-news 스키마 ─────────────────────────────────────
 class CollectNewsResponse(BaseModel):
@@ -1394,3 +1412,91 @@ def analyze_semantic_gap(req: SemanticGapRequest):
         insight=insight,
         positioning_map=positioning_map,
     )
+
+# ── /analyze-image 엔드포인트 ────────────────────────────────
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+
+@app.post("/analyze-image", response_model=ImageAnalysisResponse)
+async def analyze_image(
+    request: Request,
+    image: UploadFile = File(...),
+    industry: str = Form(default="general"),
+    platform: str = Form(default="general"),
+):
+    try:
+        user_id = _get_user_id(request)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="AI 기능은 로그인이 필요합니다.")
+        if not _check_rate_limit(user_id):
+            raise HTTPException(status_code=429, detail="일일 AI 분석 한도(5회)를 초과했습니다. 내일 다시 시도해주세요.")
+
+        content_type = image.content_type or ""
+        if content_type not in _ALLOWED_IMAGE_TYPES:
+            raise HTTPException(status_code=400, detail="이미지 파일만 허용됩니다. (jpeg, png, gif, webp)")
+
+        image_bytes = await image.read()
+        if len(image_bytes) > _MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=400, detail="파일 크기는 5MB 이하여야 합니다.")
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            system="You are an expert advertising creative analyst. Analyze the provided ad image and return a JSON object only, no other text.",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": content_type,
+                            "data": image_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            'Analyze this advertising image and return ONLY a JSON object with this exact structure:\n'
+                            '{\n'
+                            '  "text_readability": { "score": 1-5, "comment": "one sentence" },\n'
+                            '  "cta_visibility": { "score": 1-5, "comment": "one sentence" },\n'
+                            '  "visual_complexity": { "level": "low|medium|high", "comment": "one sentence" },\n'
+                            '  "color_contrast": { "score": 1-5, "comment": "one sentence" },\n'
+                            '  "overall_score": 1-5,\n'
+                            '  "top_recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]\n'
+                            '}\n'
+                            f'Industry context: {industry}, Platform: {platform}'
+                        ),
+                    },
+                ],
+            }],
+        )
+
+        raw = resp.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=500, detail=f"응답 JSON 파싱 실패: {str(e)}")
+
+        return ImageAnalysisResponse(**parsed)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] /analyze-image 실패: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))

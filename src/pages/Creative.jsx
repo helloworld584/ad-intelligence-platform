@@ -21,8 +21,10 @@ function Creative() {
   const [dragActive, setDragActive] = useState(false)
   const [analyzed, setAnalyzed] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [imageLoading, setImageLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
+  const [imageResult, setImageResult] = useState(null)
   const fileInputRef = useRef(null)
 
   const handleDrag = (e) => {
@@ -50,46 +52,78 @@ function Creative() {
     }
   }
 
+  const handleRemoveImage = () => {
+    setFormData({ ...formData, image: null })
+  }
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   const analyze = async () => {
     setLoading(true)
+    setImageLoading(!!formData.image)
     setError(null)
+    setResult(null)
+    setImageResult(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/analyze-creative`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          copy_text: formData.adText,
-          platform: platformMap[formData.platform],
-          industry: formData.industry,
-          has_image: !!formData.image
-        })
-      })
+      // Parallel calls to /analyze-creative and /analyze-image (if image exists)
+      const [creativeResponse, imageResponse] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_URL}/analyze-creative`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            copy_text: formData.adText,
+            platform: platformMap[formData.platform],
+            industry: formData.industry,
+            has_image: !!formData.image
+          })
+        }),
+        formData.image ? fetch(`${import.meta.env.VITE_API_URL}/analyze-image`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: (() => {
+            const formDataImage = new FormData()
+            formDataImage.append('image', formData.image)
+            formDataImage.append('industry', formData.industry)
+            formDataImage.append('platform', platformMap[formData.platform])
+            return formDataImage
+          })()
+        }) : Promise.resolve(null)
+      ])
       
-      if (response.status === 401) {
+      if (creativeResponse.status === 401) {
         throw new Error(t('common.login_required'))
       }
-      if (response.status === 429) {
+      if (creativeResponse.status === 429) {
         throw new Error(t('common.daily_limit'))
       }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!creativeResponse.ok) throw new Error(`HTTP ${creativeResponse.status}`)
       
-      const data = await response.json()
-      setResult(data)
+      const creativeData = await creativeResponse.json()
+      setResult(creativeData)
       setAnalyzed(true)
+
+      // Handle image response (silent failure)
+      if (imageResponse && imageResponse.ok) {
+        const imageData = await imageResponse.json()
+        setImageResult(imageData)
+      } else {
+        setImageResult(null)
+      }
     } catch (err) {
       setError(err.message || t('page.analyze.error'))
     } finally {
       setLoading(false)
+      setImageLoading(false)
     }
   }
 
@@ -136,13 +170,22 @@ function Creative() {
               className="hidden"
             />
             {formData.image ? (
-              <div>
-                <p className="text-green-400 mb-2">{formData.image.name}</p>
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemoveImage()
+                  }}
+                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"
+                >
+                  ×
+                </button>
                 <img
                   src={URL.createObjectURL(formData.image)}
                   alt="Preview"
                   className="max-h-40 mx-auto rounded"
                 />
+                <p className="text-green-400 mt-2">{formData.image.name}</p>
               </div>
             ) : (
               <div>
@@ -248,6 +291,87 @@ function Creative() {
               ))}
             </div>
           </div>
+
+          {/* Image Analysis */}
+          {formData.image && (
+            <div className="bg-gray-800 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-bold mb-4">Image Analysis</h2>
+              {imageLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : imageResult ? (
+                <>
+                  {/* Overall Score */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">Overall Score</h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={`text-2xl ${star <= imageResult.overall_score ? 'text-yellow-400' : 'text-gray-600'}`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-2xl font-bold text-gray-300">{imageResult.overall_score}/5</span>
+                    </div>
+                  </div>
+
+                  {/* Detailed Scores */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="font-semibold mb-2 text-gray-200">Text Readability</h3>
+                      <p className={`text-xl font-bold mb-1 ${getScoreColor(imageResult.text_readability?.score || 0).replace('bg-', 'text-')}`}>
+                        {imageResult.text_readability?.score || 0}
+                      </p>
+                      <p className="text-sm text-gray-400">{imageResult.text_readability?.comment || ''}</p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="font-semibold mb-2 text-gray-200">CTA Visibility</h3>
+                      <p className={`text-xl font-bold mb-1 ${getScoreColor(imageResult.cta_visibility?.score || 0).replace('bg-', 'text-')}`}>
+                        {imageResult.cta_visibility?.score || 0}
+                      </p>
+                      <p className="text-sm text-gray-400">{imageResult.cta_visibility?.comment || ''}</p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="font-semibold mb-2 text-gray-200">Color Contrast</h3>
+                      <p className={`text-xl font-bold mb-1 ${getScoreColor(imageResult.color_contrast?.score || 0).replace('bg-', 'text-')}`}>
+                        {imageResult.color_contrast?.score || 0}
+                      </p>
+                      <p className="text-sm text-gray-400">{imageResult.color_contrast?.comment || ''}</p>
+                    </div>
+                  </div>
+
+                  {/* Visual Complexity */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold mb-2 text-gray-200">Visual Complexity</h3>
+                    <p className={`text-xl font-bold mb-1 ${
+                      imageResult.visual_complexity?.level === 'low' ? 'text-green-400' :
+                      imageResult.visual_complexity?.level === 'medium' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {imageResult.visual_complexity?.level || 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-400">{imageResult.visual_complexity?.comment || ''}</p>
+                  </div>
+
+                  {/* Top Recommendations */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-gray-200">Top Recommendations</h3>
+                    <div className="space-y-2">
+                      {imageResult.top_recommendations?.map((rec, index) => (
+                        <div key={index} className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+                          <p className="text-gray-300">{rec}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
 
           {/* Strengths */}
           <div className="bg-gray-800 rounded-lg p-6 mb-8">
